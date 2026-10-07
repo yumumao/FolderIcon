@@ -341,7 +341,7 @@ static BOOL CreateFolderIconShortcut(const WCHAR* folderPath) {
     pShellLink->lpVtbl->SetDescription(pShellLink, folderName);
 
     // Create shortcut path: same location as folder with "-shortcut" suffix
-    // e.g., C:\Users\Name\MyFolder -> C:\Users\Name\MyFolder-shortcut.lnk
+    // e.g., MyFolder -> MyFolder-shortcut.lnk (beside the selected folder)
     WCHAR shortcutPath[MAX_PATH];
     swprintf_s(shortcutPath, MAX_PATH, L"%s-shortcut.lnk", folderPath);
 

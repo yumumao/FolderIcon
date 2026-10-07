@@ -1,0 +1,35 @@
+#include "app.h"
+#include <cstdio>
+Config cfg;std::vector<Entry> entries;std::wstring baseDir,exePath,iniPath;HINSTANCE instance;
+static int readInt(const wchar_t* key,int def){return (int)GetPrivateProfileIntW(L"Appearance",key,def,iniPath.c_str());}
+void setupEntries() {
+    // No personal paths in source control. Missing targets use the actual Desktop.
+    PWSTR desktop = nullptr;
+    std::wstring fallback = L".";
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &desktop))) {
+        fallback = desktop;
+        CoTaskMemFree(desktop);
+    }
+    entries = {{L"work", L"work", fallback, L"work.ico"},
+               {L"coding", L"CodingProject", fallback, L"coding.ico"},
+               {L"services", L"本地服务", fallback, L"services.ico"}};
+    for (auto& entry : entries) {
+        wchar_t raw[32768] = {}, expanded[32768] = {};
+        GetPrivateProfileStringW(entry.id.c_str(), L"Target", entry.target.c_str(),
+                                 raw, 32768, iniPath.c_str());
+        DWORD length = ExpandEnvironmentStringsW(raw, expanded, 32768);
+        entry.target = length && length <= 32768 ? expanded : raw;
+        if (entry.target.empty()) entry.target = fallback;
+    }
+}
+void loadConfig(){cfg.icon=readInt(L"IconSize",96);cfg.cellW=readInt(L"CellWidth",128);cfg.cellH=readInt(L"CellHeight",144);cfg.followDesktop=readInt(L"FollowDesktop",1)!=0;cfg.columns=clampValue(readInt(L"Columns",4),2,10);cfg.opacity=clampValue(readInt(L"Opacity",88),10,100);cfg.radius=clampValue(readInt(L"Radius",20),0,80);cfg.blur=readInt(L"Blur",1)!=0;cfg.resident=GetPrivateProfileIntW(L"General",L"Resident",0,iniPath.c_str())!=0;wchar_t b[32];GetPrivateProfileStringW(L"Appearance",L"Background",L"232830",b,32,iniPath.c_str());if(validColor(b)){unsigned long c=wcstoul(b,nullptr,16);cfg.background=RGB((c>>16)&255,(c>>8)&255,c&255);}if(cfg.followDesktop){auto m=desktopMetrics();cfg.icon=m.icon;cfg.cellW=m.cellW;cfg.cellH=m.cellH;}auto m=normalizeMetrics(cfg.icon,cfg.cellW,cfg.cellH);cfg.icon=m.icon;cfg.cellW=m.cellW;cfg.cellH=m.cellH;setupEntries();}
+bool saveConfig(){bool ok=true;auto set=[&](const wchar_t* section,const wchar_t* k,const std::wstring& v){ok=WritePrivateProfileStringW(section,k,v.c_str(),iniPath.c_str())&&ok;};set(L"General",L"Resident",std::to_wstring(cfg.resident));for(auto p:{std::pair<const wchar_t*,int>{L"IconSize",cfg.icon},{L"CellWidth",cfg.cellW},{L"CellHeight",cfg.cellH},{L"Columns",cfg.columns},{L"Opacity",cfg.opacity},{L"Radius",cfg.radius},{L"Blur",cfg.blur},{L"FollowDesktop",cfg.followDesktop}})set(L"Appearance",p.first,std::to_wstring(p.second));wchar_t c[8];swprintf(c,8,L"%02X%02X%02X",GetRValue(cfg.background),GetGValue(cfg.background),GetBValue(cfg.background));set(L"Appearance",L"Background",c);for(auto&e:entries)set(e.id.c_str(),L"Target",e.target);return ok;}
+static IFolderView2* desktopView(){IShellWindows* sw=nullptr;IDispatch* disp=nullptr;IServiceProvider* sp=nullptr;IShellBrowser* browser=nullptr;IShellView* sv=nullptr;IFolderView2* fv=nullptr;VARIANT loc,empty;VariantInit(&loc);VariantInit(&empty);loc.vt=VT_I4;loc.lVal=CSIDL_DESKTOP;long hwnd=0;if(SUCCEEDED(CoCreateInstance(CLSID_ShellWindows,nullptr,CLSCTX_LOCAL_SERVER,IID_PPV_ARGS(&sw)))){if(SUCCEEDED(sw->FindWindowSW(&loc,&empty,SWC_DESKTOP,&hwnd,SWFO_NEEDDISPATCH,&disp))&&disp){if(SUCCEEDED(disp->QueryInterface(IID_PPV_ARGS(&sp)))){if(SUCCEEDED(sp->QueryService(SID_STopLevelBrowser,IID_PPV_ARGS(&browser)))){if(SUCCEEDED(browser->QueryActiveShellView(&sv)))sv->QueryInterface(IID_PPV_ARGS(&fv));}}}}if(sv)sv->Release();if(browser)browser->Release();if(sp)sp->Release();if(disp)disp->Release();if(sw)sw->Release();return fv;}
+Metrics desktopMetrics(bool* actual){if(actual)*actual=false;Metrics m{96,128,144};auto v=desktopView();if(v){FOLDERVIEWMODE mode;int size;POINT spacing;if(SUCCEEDED(v->GetViewModeAndIconSize(&mode,&size))&&SUCCEEDED(v->GetSpacing(&spacing))){m={size,spacing.x,spacing.y};if(actual)*actual=true;}v->Release();}return normalizeMetrics(m.icon,m.cellW,m.cellH);}
+bool isDesktopPoint(POINT pt){HWND h=WindowFromPoint(pt);wchar_t cls[128];if(!h)return false;GetClassNameW(h,cls,128);if(wcscmp(cls,L"SysListView32"))return false;HWND p=GetParent(h);GetClassNameW(p,cls,128);return wcscmp(cls,L"SHELLDLL_DefView")==0;}
+int desktopEntryAt(POINT pt){if(!isDesktopPoint(pt))return -1;HWND lv=WindowFromPoint(pt);IAccessible* acc=nullptr;int result=-1;if(FAILED(AccessibleObjectFromWindow(lv,OBJID_CLIENT,IID_IAccessible,(void**)&acc)))return -1;VARIANT child;VariantInit(&child);BSTR name=nullptr;if(SUCCEEDED(acc->accHitTest(pt.x,pt.y,&child))&&child.vt==VT_I4&&child.lVal!=CHILDID_SELF&&SUCCEEDED(acc->get_accName(child,&name))&&name){PWSTR desktop=nullptr;if(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop,0,nullptr,&desktop))){std::wstring path=std::wstring(desktop)+L"\\"+name;CoTaskMemFree(desktop);if(GetFileAttributesW(path.c_str())==INVALID_FILE_ATTRIBUTES)path+=L".lnk";IShellLinkW* link=nullptr;IPersistFile* file=nullptr;if(SUCCEEDED(CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&link)))){if(SUCCEEDED(link->QueryInterface(IID_PPV_ARGS(&file)))&&SUCCEEDED(file->Load(path.c_str(),STGM_READ))){wchar_t target[32768],args[2048];link->GetPath(target,32768,nullptr,SLGP_RAWPATH);link->GetArguments(args,2048);if(!_wcsicmp(target,exePath.c_str()))for(size_t i=0;i<entries.size();i++)if(std::wstring(args)==L"--entry "+entries[i].id){result=(int)i;break;}}if(file)file->Release();link->Release();}}}if(name)SysFreeString(name);VariantClear(&child);acc->Release();return result;}
+HBITMAP shellBitmap(const std::wstring& path,int size){IShellItemImageFactory* f=nullptr;HBITMAP bitmap=nullptr;if(SUCCEEDED(SHCreateItemFromParsingName(path.c_str(),nullptr,IID_PPV_ARGS(&f)))){f->GetImage({size,size},(SIIGBF)(SIIGBF_ICONONLY|SIIGBF_BIGGERSIZEOK),&bitmap);f->Release();}return bitmap;}
+void launchSelf(const std::wstring& args){SHELLEXECUTEINFOW s={sizeof(s)};s.lpFile=exePath.c_str();s.lpParameters=args.c_str();s.nShow=SW_SHOWNORMAL;ShellExecuteExW(&s);}
+void openEntry(int id){if(id<0||id>=(int)entries.size())return;auto ret=(INT_PTR)ShellExecuteW(nullptr,L"open",entries[id].target.c_str(),nullptr,nullptr,SW_SHOWNORMAL);if(ret<=32)MessageBoxW(nullptr,L"无法打开目标文件夹，请检查路径是否仍然有效。",L"文件夹面板",MB_ICONERROR);}
+bool applyStartup(bool enabled){HKEY k;LONG e=RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,nullptr,0,KEY_SET_VALUE,nullptr,&k,nullptr);if(e!=ERROR_SUCCESS)return false;if(enabled){auto value=L"\""+exePath+L"\" --resident";e=RegSetValueExW(k,L"FolderIconCN",0,REG_SZ,(BYTE*)value.c_str(),(DWORD)((value.size()+1)*sizeof(wchar_t)));}else{e=RegDeleteValueW(k,L"FolderIconCN");if(e==ERROR_FILE_NOT_FOUND)e=ERROR_SUCCESS;}RegCloseKey(k);return e==ERROR_SUCCESS;}
+void diagnose(const std::wstring& file){bool real;auto m=desktopMetrics(&real);FILE* out=_wfopen(file.c_str(),L"wb");if(out){fprintf(out,"{\"desktopMetricsActual\":%s,\"icon\":%d,\"cellWidth\":%d,\"cellHeight\":%d,\"residentConfig\":%d}\n",real?"true":"false",m.icon,m.cellW,m.cellH,cfg.resident);fclose(out);}}

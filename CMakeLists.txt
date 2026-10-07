@@ -1,40 +1,34 @@
 cmake_minimum_required(VERSION 3.20)
-project(FolderIconC LANGUAGES C)
-
+project(FolderIcon LANGUAGES C CXX)
+if(NOT WIN32)
+    message(FATAL_ERROR "FolderIcon requires Windows")
+endif()
 set(CMAKE_C_STANDARD 17)
-set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Windows subsystem (no console window)
-set(CMAKE_WIN32_EXECUTABLE ON)
-
+# Keep the upstream C implementation buildable as a separate target.
 add_executable(FolderIconC WIN32 main.c)
+target_compile_definitions(FolderIconC PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS)
+target_link_libraries(FolderIconC PRIVATE user32 shell32 gdi32 comctl32 dwmapi uxtheme ole32)
 
-target_compile_definitions(FolderIconC PRIVATE
-    UNICODE
-    _UNICODE
-    WIN32_LEAN_AND_MEAN
-    _CRT_SECURE_NO_WARNINGS
-)
-
-# Link Windows libraries
-target_link_libraries(FolderIconC PRIVATE
-    user32
-    shell32
-    gdi32
-    comctl32
-    dwmapi
-    uxtheme
-    ole32
-)
-
-# Optimization flags for release builds
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(FolderIconC PRIVATE /O2 /GL)
-    target_link_options(FolderIconC PRIVATE /LTCG)
+add_executable(FolderIconCN WIN32 src/main.cpp src/shell.cpp src/panel.cpp src/settings.cpp)
+target_compile_definitions(FolderIconCN PRIVATE _CRT_SECURE_NO_WARNINGS)
+target_link_libraries(FolderIconCN PRIVATE user32 shell32 gdi32 comctl32 comdlg32 ole32 oleaut32 oleacc uuid advapi32 dwmapi shlwapi gdiplus)
+if(MSVC)
+    target_compile_options(FolderIconCN PRIVATE /utf-8)
+elseif(MINGW)
+    target_link_options(FolderIconCN PRIVATE -municode)
 endif()
 
-# Set output name
-set_target_properties(FolderIconC PROPERTIES
-    OUTPUT_NAME "FolderIcon"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(foldericon_core_tests tests/core_test.cpp)
+    # Keep assertions active even in Release builds.
+    if(MSVC)
+        target_compile_options(foldericon_core_tests PRIVATE /UNDEBUG)
+    else()
+        target_compile_options(foldericon_core_tests PRIVATE -UNDEBUG)
+    endif()
+    add_test(NAME foldericon_core COMMAND foldericon_core_tests)
+endif()

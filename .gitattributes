@@ -1,0 +1,30 @@
+# Line endings are not a privacy boundary; see .gitignore and scripts/check-publish.ps1.
+* text=auto
+*.c text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sln text eol=crlf
+*.vcxproj text eol=crlf
+*.example.ini text eol=crlf
+*.png binary
+*.ico binary
+*.exe binary
+*.zip binary
+# Defense in depth for git archive only; this does NOT prevent Git commits.
+/.codex export-ignore
+/.claude export-ignore
+/.shared export-ignore
+/.backups export-ignore
+/dist export-ignore
+/upstream export-ignore
+/CLAUDE.md export-ignore
+/AGENTS.md export-ignore
+.gitattributes text eol=lf
+.gitignore text eol=lf
