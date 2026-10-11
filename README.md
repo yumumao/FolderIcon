@@ -2,19 +2,19 @@
 
 # FolderIcon · 桌面文件夹面板
 
-**文件夹留在原处，内容就在桌面展开。**
+**像手机文件夹一样，点开桌面入口，内容就地展开。**
 
 原生Win32 · 按需零常驻 · 可选单击展开 · 自定义图标角标
 
 [English](README.en.md) · [下载与发布](https://github.com/yumumao/FolderIcon/releases) · [更新说明](docs/RELEASE-v2.0.0-rc.1.md) · [验证范围](docs/VALIDATION.md)
 
-<img src="docs/images/panel.png" width="460" alt="FolderIcon深色圆角面板，显示合成示例中的文件夹和文件；可继续展开的子文件夹带有角标">
+<img src="docs/images/hero-click-expand.png" width="960" alt="操作示意：桌面上的蓝色角标文件夹快捷方式，经鼠标点击后展开真实内容面板，如同手机文件夹；标题与条目名称已脱敏">
 
 </div>
 
 FolderIcon把常用文件夹变成轻量弹出面板。你可以给任意位置的文件夹创建桌面入口，也可以让**桌面已有的真实文件夹原地展开**，无需移动、替换或删除原目录。
 
-本仓库是[ltrudu/FolderIcon](https://github.com/ltrudu/FolderIcon)的独立中文增强Fork，不是上游官方发行版。当前发布线为**v2.0.0-rc.1公开预览**；程序界面为简体中文，文档提供中英文。支持目标为Windows10/11 x64，目前实机验证环境为Windows10。配图包括四张合成演示截图，以及两张经用户授权、名称已脱敏的真实目录截图。设置中的演示路径作了简化显示；真实截图的面板标题及条目名称均已遮蔽，不展示个人路径。
+本仓库是[ltrudu/FolderIcon](https://github.com/ltrudu/FolderIcon)的独立中文增强Fork，不是上游官方发行版。当前发布线为**v2.0.0-rc.1公开预览**；程序界面为简体中文，文档提供中英文。支持目标为Windows10/11 x64，目前实机验证环境为Windows10。README配图包括一张点击展开操作示意、三张合成演示截图，以及两张经用户授权、名称已脱敏的真实目录截图。首图复用已审核入口图案和真实面板，桌面选择框、鼠标及快捷方式箭头为示意，不是完整桌面截图；真实面板未重绘。设置中的演示路径作了简化显示；真实截图的面板标题及条目名称均已遮蔽，不展示个人路径。
 
 ## 一分钟开始
 

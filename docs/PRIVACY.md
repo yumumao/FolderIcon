@@ -13,7 +13,11 @@
 
 `docs/images/real-desktop-orange.png`和`docs/images/real-shortcut-blue.png`是两张明确授权的文档配图，不是整个桌面的截图。现有入口图案单独预览，展开面板由发布版程序的隔离副本打开真实目录后截取；不修改真实配置、桌面入口、图标资源或源文件。
 
-采集前用完全不含原字形的模糊遮罩替换面板标题与所有条目名称，不是可依稀辨认的轻度模糊。不保存未脱敏截图，不公开个人路径、目录列表、原始ICO资源或本地证据。公开图片逐一视觉复核；PNG不携带路径或文本元数据。授权仅覆盖这两张已审核图片，不自动扩大到其它真实目录。
+采集前用完全不含原字形的模糊遮罩替换面板标题与所有条目名称，不是可依稀辨认的轻度模糊。不保存未脱敏截图，不公开个人路径、目录列表、原始ICO资源或本地证据。公开图片逐一视觉复核；PNG不携带路径或文本元数据。授权覆盖这两张已审核图片及其本次文档主图复用，不自动扩大到其它真实目录。
+
+## 首屏操作示意
+
+`docs/images/hero-click-expand.png`复用已公开蓝色入口图案和已脱敏真实面板，以HTML/CSS排版展示桌面入口、点击动作与展开结果。入口标签、选择框、鼠标及快捷方式箭头为示意，右侧面板保持真实截图内容；不是完整桌面实拍，也没有生成式重绘UI。没有重新采集私人目录或读取原始ICO。所有真实标题和条目名称继续遮蔽。
 
 ## 防误提交
 
@@ -37,4 +41,4 @@ Only explicitly allowlisted source, tests, tooling, example configuration, publi
 
 Release packaging copies an exact public file list, never an entire local deployment folder. Runtime INI files, personal icons and shortcuts, recovery records, caches, file listings, credentials, and local collaboration/evidence files are excluded. Screenshots are visually reviewed. This is defense in depth, not a guarantee that every possible secret format can be detected.
 
-The two real-folder views use irreversible live name masks before screen capture. No unmasked screenshot is saved. Entry artwork is previewed separately from the actual panel. Only the two reviewed PNGs are public; original icon resources, folder listings, personal paths, and local evidence remain excluded.
+The two real-folder views use irreversible live name masks before screen capture. No unmasked screenshot is saved. Entry artwork is previewed separately from the actual panel. Only the two reviewed real-view PNGs and their reuse in the reviewed click-flow hero are public; original icon resources, folder listings, personal paths, and local evidence remain excluded. The hero is an HTML/CSS composition: its pointer, desktop selection, label, and shortcut arrow are illustrative; its actual panel comes from the already-masked screenshot without generative UI edits or new private capture.

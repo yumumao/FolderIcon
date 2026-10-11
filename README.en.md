@@ -2,19 +2,19 @@
 
 # FolderIcon · Desktop Folder Panels
 
-**Keep folders where they are. Open their contents in a small desktop panel.**
+**Open desktop folders like folders on your phone. Keep everything in place.**
 
 Native Win32 · No resident process in on-demand mode · Optional single-click expansion
 
 [简体中文](README.md) · [Downloads](https://github.com/yumumao/FolderIcon/releases) · [Release notes](docs/RELEASE-v2.0.0-rc.1.md) · [Validation](docs/VALIDATION.md)
 
-<img src="docs/images/panel.png" width="460" alt="A real FolderIcon panel showing synthetic demo folders and files; expandable subfolders carry a badge">
+<img src="docs/images/hero-click-expand.png" width="960" alt="Click-flow illustration: a blue-badged desktop folder shortcut opens an actual content panel like a phone folder; the title and item names are privacy-masked">
 
 </div>
 
 FolderIcon opens frequently used folders as compact panels. Create a desktop launcher for a folder elsewhere, or enable panel expansion for an **existing real desktop folder without moving, replacing, or deleting it**.
 
-This is an independent Chinese-language fork of [ltrudu/FolderIcon](https://github.com/ltrudu/FolderIcon), not an official upstream release. **v2.0.0-rc.1 is a public preview.** The application UI is currently Simplified Chinese; this document is an English usage guide, not an English UI announcement. Windows 10/11 x64 are the target platforms; hands-on testing has been on Windows 10. The illustrations include four synthetic demo screenshots and two owner-authorized, privacy-masked views of real folders. Demo settings paths are shortened for readability. Real-view titles and item names are masked; personal paths are not shown.
+This is an independent Chinese-language fork of [ltrudu/FolderIcon](https://github.com/ltrudu/FolderIcon), not an official upstream release. **v2.0.0-rc.1 is a public preview.** The application UI is currently Simplified Chinese; this document is an English usage guide, not an English UI announcement. Windows 10/11 x64 are the target platforms; hands-on testing has been on Windows 10. The README shows one click-flow illustration, three synthetic demo screenshots, and two owner-authorized, privacy-masked views of real folders. The hero reuses reviewed entry artwork and an actual panel; its desktop selection, pointer, and shortcut arrow are illustrative, not a full desktop capture. The actual panel is not redrawn. Demo settings paths are shortened for readability. Real-view titles and item names are masked; personal paths are not shown.
 
 ## Quick start
 

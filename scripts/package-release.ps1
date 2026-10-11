@@ -18,7 +18,7 @@ $stage=Join-Path $OutputDirectory $name
 foreach($destination in @($stage,(Join-Path $OutputDirectory "$name.zip"),(Join-Path $OutputDirectory 'FolderIconCN.exe'),(Join-Path $OutputDirectory 'SHA256SUMS.txt'))){
     if(Test-Path -LiteralPath $destination){throw 'Packaging destination already exists; use a fresh output directory'}
 }
-$public=@('README.md','README.en.md','config/FolderIcon.example.ini','docs/PRIVACY.md','docs/UPSTREAM.md','docs/VALIDATION.md',"docs/RELEASE-$Version.md",'docs/images/panel.png','docs/images/subfolder.png','docs/images/settings-appearance.png','docs/images/settings-entries.png','docs/images/real-desktop-orange.png','docs/images/real-shortcut-blue.png')
+$public=@('README.md','README.en.md','config/FolderIcon.example.ini','docs/PRIVACY.md','docs/UPSTREAM.md','docs/VALIDATION.md',"docs/RELEASE-$Version.md",'docs/images/panel.png','docs/images/subfolder.png','docs/images/settings-appearance.png','docs/images/settings-entries.png','docs/images/real-desktop-orange.png','docs/images/real-shortcut-blue.png','docs/images/hero-click-expand.png')
 foreach($relative in $public){if(!(Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf)){throw "Missing public input: $relative"}}
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 Copy-Item -LiteralPath $Exe -Destination "$stage/FolderIconCN.exe"
