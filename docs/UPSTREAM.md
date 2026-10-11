@@ -15,7 +15,7 @@
 ## 图像与构建来源
 
 - `docs/dark.png`、`docs/light.png`是保留的上游原版截图，不代表当前中文版界面。
-- `docs/images/`是本Fork使用合成演示目录生成的当前软件截图，不含个人桌面文件。
+- `docs/images/`包含本Fork的合成演示截图、两张经明确授权且名称已脱敏的真实目录图，以及复用已审核素材的点击示意图；截图来源和边界见PRIVACY.md。
 - `assets/app.ico`为本Fork的应用图标；私人ICO不进入仓库。
 - 旧`.sln`、`.vcxproj`构建原版C程序。当前GitHub工作流调用`scripts/build.ps1`测试并构建中文版，工件发布与旧标签区分。
 
@@ -25,4 +25,4 @@ This independent fork retains the upstream C implementation and history, while t
 
 On October 12, 2026, upstream's README still stated MIT, but its linked `LICENSE` file on master returned HTTP 404. Earlier inspection also found no such file in v1.2.0. No license text or copyright attribution has been invented to fill that gap. Publishing this fork does not resolve it; verify full permissions before redistribution or commercial use.
 
-Current screenshots use synthetic demo data. The inherited `dark.png` and `light.png` are upstream screenshots, not current UI validation. Personal configurations, icons, desktop listings, and local audit records are excluded from source and release artifacts.
+Current documentation includes synthetic demo screenshots, two explicitly authorized and privacy-masked real-folder views, and a click-flow illustration reusing reviewed assets. See PRIVACY.md for capture boundaries. The inherited `dark.png` and `light.png` are upstream screenshots, not current UI validation. Personal configurations, icons, desktop listings, and local audit records are excluded from source and release artifacts.

@@ -95,3 +95,7 @@
 !/docs/images/real-desktop-orange.png
 !/docs/images/real-shortcut-blue.png
 !/docs/images/hero-click-expand.png
+
+# rc.2 release notes and reviewed synthetic confirmation only.
+!/docs/RELEASE-v2.0.0-rc.2.md
+!/docs/images/exit-confirmation.png

@@ -42,3 +42,9 @@ Only explicitly allowlisted source, tests, tooling, example configuration, publi
 Release packaging copies an exact public file list, never an entire local deployment folder. Runtime INI files, personal icons and shortcuts, recovery records, caches, file listings, credentials, and local collaboration/evidence files are excluded. Screenshots are visually reviewed. This is defense in depth, not a guarantee that every possible secret format can be detected.
 
 The two real-folder views use irreversible live name masks before screen capture. No unmasked screenshot is saved. Entry artwork is previewed separately from the actual panel. Only the two reviewed real-view PNGs and their reuse in the reviewed click-flow hero are public; original icon resources, folder listings, personal paths, and local evidence remain excluded. The hero is an HTML/CSS composition: its pointer, desktop selection, label, and shortcut arrow are illustrative; its actual panel comes from the already-masked screenshot without generative UI edits or new private capture.
+
+## rc.2设置与退出确认配图 / rc.2 settings and confirmation
+
+`settings-appearance.png`和`settings-entries.png`已使用rc.2候选在隔离合成目录中重新采集；演示路径仅在窗口显示层缩写，不保存设置。`exit-confirmation.png`只显示通用说明，不包含真实目录或桌面内容。没有为本轮新增真实目录截图；原有两张授权脱敏图和主图继续复用。
+
+The refreshed settings views use an isolated synthetic fixture. Demo paths are shortened only in the displayed text, without saving configuration. The exit confirmation contains generic text only. No new private-folder capture is included; the previously reviewed real-folder views and hero are reused.

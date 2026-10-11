@@ -6,14 +6,24 @@
 #include "context_menu.h"
 #include "desktop_scope.h"
 HWND settingsWindow=nullptr;
-static HFONT font;static HWND fields[9],follow,followFont,mode,contextMenu,dotHidden,showHidden,listPanel,listDesktop;
-static HWND titleLabel,metricLabels[9],backgroundNote,modeLabel,headingPanel,headingDesktop,createNote,settingsNote,cacheNote,delayNote;
+static HFONT font,helpFont;static HBRUSH helpBrush;static HWND backgroundHelp,backgroundHelpTitle,backgroundHelpBody;static HWND fields[9],follow,followFont,autoStart,backgroundStatus,backgroundToggle,contextMenu,dotHidden,showHidden,listPanel,listDesktop;
+static HWND titleLabel,metricLabels[9],backgroundNote,headingPanel,headingDesktop,createNote,settingsNote,cacheNote,delayNote;
 static COLORREF chosen;static FolderRules::Rules draftRules,draftBaseRules;
 static HWND desktopLabel,desktopLocation,desktopNote;
 static std::wstring draftDesktopPath,baseDesktopPath;
 static constexpr int settingsHeight=1275;
 static int settingsScroll=0;
 static void refreshDesktopLocation();
+static constexpr wchar_t backgroundHelpText[]=L"专用快捷方式（蓝色角标）\n仍可双击展开面板，用完即退出。\n\n真实桌面文件夹（橙色角标）\n不再监听单击；双击仍用资源管理器打开。\n\n退出仅停止本次后台，不删除入口或目录，\n也不改变开机启动。";
+bool confirmStopBackground(HWND owner){
+ return MessageBoxW(owner,(std::wstring(L"确定退出后台？\n\n")+backgroundHelpText).c_str(),L"确认退出后台",MB_OKCANCEL|MB_ICONINFORMATION|MB_DEFBUTTON2|MB_SETFOREGROUND)==IDOK;
+}
+static void refreshBackgroundState(){
+ bool running=FindWindowW(CONTROL_CLASS,nullptr)!=nullptr;
+ SetWindowTextW(backgroundStatus,running?L"后台运行中":L"后台已停止");
+ SetWindowTextW(backgroundToggle,running?L"退出后台":L"启动后台");
+ EnableWindow(backgroundToggle,TRUE);
+}
 static void scrollSettings(int requested){
  RECT rc{};GetClientRect(settingsWindow,&rc);int next=clampValue(requested,0,std::max(0,settingsHeight-(int)rc.bottom)),delta=settingsScroll-next;
  settingsScroll=next;
@@ -37,8 +47,9 @@ static void layoutSettings(int clientWidth){
  int fieldWidth=124,fieldX=left+column-fieldWidth,labelWidth=std::max(120,fieldX-left-10);
  placeControl(titleLabel,left,16,width-2*margin,28);placeControl(follow,left,52,width-2*margin,25);placeControl(followFont,left,82,width-2*margin,25);
  for(int i=0;i<9;i++){placeControl(metricLabels[i],left,114+i*30,labelWidth,26);placeControl(fields[i],fieldX,110+i*30,fieldWidth,28);}
+ placeControl(backgroundHelp,right,110,column,300);placeControl(backgroundHelpTitle,right+16,126,column-32,28);placeControl(backgroundHelpBody,right+16,166,column-32,230);
  placeControl(GetDlgItem(settingsWindow,120),left,388,200,32);placeControl(backgroundNote,left+210,394,std::max(100,column-210),28);
- placeControl(modeLabel,left,432,95,28);placeControl(mode,left+101,428,width-margin-(left+101),100);
+ placeControl(autoStart,left,432,column,28);placeControl(backgroundStatus,right,432,column-170,28);placeControl(backgroundToggle,right+column-160,428,160,32);
  placeControl(contextMenu,left,468,width-2*margin,25);placeControl(dotHidden,left,498,width-2*margin,25);placeControl(showHidden,left,528,width-2*margin,25);
  placeControl(desktopLabel,left,560,available,24);placeControl(desktopLocation,left,586,available,28);
  placeControl(GetDlgItem(settingsWindow,220),left,622,160,30);placeControl(GetDlgItem(settingsWindow,221),left+170,622,160,30);placeControl(desktopNote,left+342,622,available-342,44);
@@ -46,7 +57,7 @@ static void layoutSettings(int clientWidth){
  int deleteLeft=left+column-110,createWidth=std::max(150,column-120);placeControl(GetDlgItem(settingsWindow,200),left,885,createWidth,30);placeControl(GetDlgItem(settingsWindow,202),deleteLeft,885,110,30);
  int ruleButtons=right+column-230;placeControl(GetDlgItem(settingsWindow,201),ruleButtons,885,110,30);placeControl(GetDlgItem(settingsWindow,203),ruleButtons+120,885,110,30);
  placeControl(GetDlgItem(settingsWindow,212),left,927,180,30);placeControl(createNote,left,967,column,44);int badgeButtons=right+column-270;placeControl(GetDlgItem(settingsWindow,211),badgeButtons,927,110,30);placeControl(GetDlgItem(settingsWindow,213),badgeButtons+120,927,150,30);
- placeControl(settingsNote,left,1012,width-2*margin,56);placeControl(GetDlgItem(settingsWindow,125),left,1080,155,32);placeControl(cacheNote,left+166,1083,std::max(160,width-margin-(left+166)),32);placeControl(delayNote,left,1160,width-2*margin,38);
+ placeControl(settingsNote,left,1012,width-2*margin,56);placeControl(GetDlgItem(settingsWindow,125),left,1080,155,32);placeControl(cacheNote,left+166,1083,std::max(160,width-margin-(left+166)),32);placeControl(delayNote,left,1154,width-2*margin,60);
  placeControl(GetDlgItem(settingsWindow,214),left,1120,190,32);placeControl(GetDlgItem(settingsWindow,216),left+202,1120,available-202,34);
  int cancelX=width-margin-112,saveX=cancelX-12-135;placeControl(GetDlgItem(settingsWindow,130),saveX,1220,135,36);placeControl(GetDlgItem(settingsWindow,131),cancelX,1220,112,36);
 }
@@ -175,12 +186,17 @@ static LRESULT CALLBACK proc(HWND h,UINT m,WPARAM w,LPARAM l){
  case WM_CREATE:{
   settingsWindow=h;settingsScroll=0;font=CreateFontW(-17,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,DEFAULT_QUALITY,0,L"Microsoft YaHei UI");chosen=cfg.background;draftRules=folderRules;draftBaseRules=folderRules;draftDesktopPath=cfg.desktopPath;baseDesktopPath=cfg.desktopPath;
   SendMessageW(h,WM_SETICON,ICON_BIG,(LPARAM)applicationIcon(GetSystemMetrics(SM_CXICON)));SendMessageW(h,WM_SETICON,ICON_SMALL,(LPARAM)applicationIcon(GetSystemMetrics(SM_CXSMICON)));
+  helpFont=CreateFontW(-18,0,0,0,FW_BOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,DEFAULT_QUALITY,0,L"Microsoft YaHei UI");helpBrush=CreateSolidBrush(RGB(234,244,255));
+  backgroundHelp=control(L"STATIC",L"",WS_CLIPSIBLINGS,432,110,384,300,180);SetWindowPos(backgroundHelp,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+  backgroundHelpTitle=control(L"STATIC",L"退出后台后，仍可按需使用",SS_NOPREFIX,448,126,352,28,181);SendMessageW(backgroundHelpTitle,WM_SETFONT,(WPARAM)(helpFont?helpFont:font),TRUE);
+  backgroundHelpBody=control(L"STATIC",backgroundHelpText,SS_NOPREFIX,448,166,352,230,182);
   titleLabel=control(L"STATIC",L"文件夹面板 · 外观与运行方式",0,24,16,620,28,0);
   follow=control(L"BUTTON",L"图标大小和网格跟随当前桌面",BS_AUTOCHECKBOX|WS_TABSTOP,24,52,560,25,101);SendMessageW(follow,BM_SETCHECK,cfg.followDesktop?BST_CHECKED:BST_UNCHECKED,0);
   followFont=control(L"BUTTON",L"文件名字体和字号跟随桌面（可独立取消）",BS_AUTOCHECKBOX|WS_TABSTOP,24,82,560,25,102);SendMessageW(followFont,BM_SETCHECK,cfg.followFont?BST_CHECKED:BST_UNCHECKED,0);
   int vals[]={cfg.icon,cfg.cellW,cfg.cellH,cfg.columns,cfg.opacity,cfg.radius,cfg.fontSize,cfg.textGap,cfg.expandDelay};for(int i=0;i<9;i++){metricLabels[i]=control(L"STATIC",labels[i],0,24,114+i*30,330,26,0);fields[i]=control(L"EDIT",std::to_wstring(vals[i]).c_str(),ES_NUMBER|WS_TABSTOP,370,110+i*30,128,28,110+i);}
   control(L"BUTTON",L"选择背景颜色…",BS_PUSHBUTTON|WS_TABSTOP,24,388,200,32,120);backgroundNote=control(L"STATIC",L"单层半透明（不实时磨砂）",0,240,394,275,28,121);
-  modeLabel=control(L"STATIC",L"运行模式",0,24,432,100,28,0);mode=control(L"COMBOBOX",L"",CBS_DROPDOWNLIST|WS_TABSTOP,125,428,500,100,122);SendMessageW(mode,CB_ADDSTRING,0,(LPARAM)L"按需：关闭面板后不留后台");SendMessageW(mode,CB_ADDSTRING,0,(LPARAM)L"增强：单击展开、双击打开");SendMessageW(mode,CB_SETCURSEL,cfg.resident?1:0,0);
+  autoStart=control(L"BUTTON",L"开机静默启动（内置启动项）",BS_AUTOCHECKBOX|WS_TABSTOP,24,432,380,28,122);SendMessageW(autoStart,BM_SETCHECK,cfg.autoStart?BST_CHECKED:BST_UNCHECKED,0);
+  backgroundStatus=control(L"STATIC",L"",0,432,432,180,28,127);backgroundToggle=control(L"BUTTON",L"",BS_PUSHBUTTON|WS_TABSTOP,640,428,160,32,128);refreshBackgroundState();
   contextMenu=control(L"BUTTON",L"在文件夹右键菜单中添加“添加到FolderIcon面板”",BS_AUTOCHECKBOX|WS_TABSTOP,24,468,620,25,215);SendMessageW(contextMenu,BM_SETCHECK,cfg.contextMenu?BST_CHECKED:BST_UNCHECKED,0);dotHidden=control(L"BUTTON",L"将点号开头的文件和文件夹视为隐藏项",BS_AUTOCHECKBOX|WS_TABSTOP,24,498,580,25,123);SendMessageW(dotHidden,BM_SETCHECK,cfg.dotHidden?BST_CHECKED:BST_UNCHECKED,0);
   showHidden=control(L"BUTTON",L"显示隐藏文件及文件夹（含系统隐藏项）",BS_AUTOCHECKBOX|WS_TABSTOP,24,528,580,25,124);SendMessageW(showHidden,BM_SETCHECK,cfg.showHidden?BST_CHECKED:BST_UNCHECKED,0);
   desktopLabel=control(L"STATIC",L"桌面位置",0,24,560,790,24,0);
@@ -195,7 +211,7 @@ static LRESULT CALLBACK proc(HWND h,UINT m,WPARAM w,LPARAM l){
   control(L"BUTTON",L"清理失效配置及孤立角标",BS_PUSHBUTTON|WS_TABSTOP,24,1120,190,32,214);control(L"STATIC",L"桌面删除入口后自动清理；无后台时下次打开设置清理。",0,226,1120,550,34,216);
   control(L"BUTTON",L"重试加角标…",BS_PUSHBUTTON|WS_TABSTOP,360,807,110,30,211);control(L"BUTTON",L"恢复原图标…",BS_PUSHBUTTON|WS_TABSTOP,480,807,150,30,213);
   settingsNote=control(L"STATIC",L"再次展开：在面板内右键真实子文件夹，勾选“在面板内展开”，立即生效。\n右侧新增目录保存时自动加角标（写desktop.ini）；移除并保存会恢复原图标，不删除真实目录。",0,24,852,650,56,0);control(L"BUTTON",L"重建图标缓存",BS_PUSHBUTTON|WS_TABSTOP,24,920,155,32,125);cacheNote=control(L"STATIC",L"缓存位于程序旁的cache文件夹",0,190,923,320,32,126);
-  delayNote=control(L"STATIC",L"推荐80毫秒；0毫秒立即展开，双击时可能闪现。增强模式随登录启动；按需模式关闭后不留后台。",0,24,960,650,38,0);
+  delayNote=control(L"STATIC",L"后台按钮立即生效；退出仅停止本次监听，不改变开机启动。\n已有启动文件夹快捷方式可继续使用；取消内置自启不会删除手工快捷方式。\n单击推荐80毫秒；0毫秒可能在双击时闪现面板。",0,24,960,650,38,0);
   control(L"BUTTON",L"保存并应用",BS_DEFPUSHBUTTON|WS_TABSTOP,430,1020,135,36,130);control(L"BUTTON",L"取消",BS_PUSHBUTTON|WS_TABSTOP,575,1020,112,36,131);layoutSettings(840);enableMetrics();SetTimer(h,32,1500,nullptr);return 0;}
  case WM_COMMAND:{int id=LOWORD(w);
   if(id==101||id==102){if(id==102&&SendMessageW(followFont,BM_GETCHECK,0,0)==BST_CHECKED)SetWindowTextW(fields[6],std::to_wstring(desktopFont().points).c_str());enableMetrics();return 0;}
@@ -209,7 +225,7 @@ static LRESULT CALLBACK proc(HWND h,UINT m,WPARAM w,LPARAM l){
   if(id==211||id==213){changeBadge(h,listDesktop,id==213);return 0;}
   if(id==125){if(panelWindow)closePanel();bool ok=IconCache::rebuild(baseDir+L"\\cache");SetWindowTextW(GetDlgItem(h,126),ok?L"已清除，下次展开时自动重建。":L"重建失败，请检查权限或稍后重试。");return 0;}
   if(id==130){Config next=cfg;int v[9];for(int i=0;i<9;i++){wchar_t b[32];GetWindowTextW(fields[i],b,32);v[i]=_wtoi(b);}next.followDesktop=SendMessageW(follow,BM_GETCHECK,0,0)==BST_CHECKED;next.followFont=SendMessageW(followFont,BM_GETCHECK,0,0)==BST_CHECKED;auto metrics=next.followDesktop?desktopMetrics():normalizeMetrics(v[0],v[1],v[2]);if(!next.followDesktop&&(metrics.icon!=v[0]||metrics.cellW!=v[1]||metrics.cellH!=v[2])){MessageBoxW(h,L"图标范围24～256；横向网格至少图标+16，纵向至少图标+44。",L"请检查尺寸",MB_ICONWARNING);return 0;}if(v[3]<2||v[3]>10||v[4]<10||v[4]>100||v[5]<0||v[5]>80||(!next.followFont&&(v[6]<8||v[6]>36))||v[7]<0||v[7]>24||v[8]<0||v[8]>500){MessageBoxW(h,L"请按各项标注的范围填写。每行2～10个；圆角0～80。",L"请检查设置",MB_ICONWARNING);return 0;}
-   next.icon=metrics.icon;next.cellW=metrics.cellW;next.cellH=metrics.cellH;next.columns=v[3];next.opacity=v[4];next.radius=v[5];next.fontSize=next.followFont?desktopFont().points:v[6];next.textGap=v[7];next.expandDelay=v[8];next.contextMenu=SendMessageW(contextMenu,BM_GETCHECK,0,0)==BST_CHECKED;next.dotHidden=SendMessageW(dotHidden,BM_GETCHECK,0,0)==BST_CHECKED;next.showHidden=SendMessageW(showHidden,BM_GETCHECK,0,0)==BST_CHECKED;next.background=chosen;next.resident=SendMessageW(mode,CB_GETCURSEL,0,0)==1;
+   next.icon=metrics.icon;next.cellW=metrics.cellW;next.cellH=metrics.cellH;next.columns=v[3];next.opacity=v[4];next.radius=v[5];next.fontSize=next.followFont?desktopFont().points:v[6];next.textGap=v[7];next.expandDelay=v[8];next.contextMenu=SendMessageW(contextMenu,BM_GETCHECK,0,0)==BST_CHECKED;next.dotHidden=SendMessageW(dotHidden,BM_GETCHECK,0,0)==BST_CHECKED;next.showHidden=SendMessageW(showHidden,BM_GETCHECK,0,0)==BST_CHECKED;next.background=chosen;next.autoStart=SendMessageW(autoStart,BM_GETCHECK,0,0)==BST_CHECKED;
    next.desktopPath=draftDesktopPath;std::wstring root,error;
    if(!DesktopScope::resolve(next.desktopPath,root,error)){MessageBoxW(h,error.c_str(),L"桌面位置不可用",MB_OK|MB_ICONWARNING);return 0;}
    auto nextRules=EntryActions::mergeDesktopRules(folderRules,draftRules);size_t removed=DesktopScope::prune(nextRules,root);
@@ -221,9 +237,10 @@ static LRESULT CALLBACK proc(HWND h,UINT m,WPARAM w,LPARAM l){
     if(next.contextMenu!=old.contextMenu){std::wstring menuError;if(!ContextMenu::sync(next.contextMenu!=0,exePath,menuError)){cfg=old;folderRules=oldRules;entries=oldEntries;std::wstring rollbackError;ContextMenu::sync(old.contextMenu!=0,exePath,rollbackError);saveConfig();MessageBoxW(h,menuError.c_str(),L"右键菜单未应用",MB_ICONERROR);return 0;}}
    auto badgeFailures=EntryActions::syncDesktopBadges(oldRules,folderRules);
    if(!badgeFailures.empty())MessageBoxW(h,(L"设置已保存，但以下目录的角标添加或恢复未完成；移除的目录也可通过恢复原图标按钮重新选择后重试：\n\n"+badgeFailures).c_str(),L"角标未完成",MB_OK|MB_ICONWARNING);
-   if(panelWindow)closePanel();HWND other=FindWindowW(CONTROL_CLASS,nullptr);if(other&&other!=controller)PostMessageW(other,WM_CONFIG,0,0);if(residentMode){if(!cfg.resident){DestroyWindow(h);PostMessageW(controller,WM_CLOSE,0,0);return 0;}}else if(cfg.resident&&!other)launchSelf(L"--resident");DestroyWindow(h);return 0;}
+   if(panelWindow)closePanel();HWND other=FindWindowW(CONTROL_CLASS,nullptr);if(other&&other!=controller)PostMessageW(other,WM_CONFIG,0,0);DestroyWindow(h);return 0;}
+  if(id==128){HWND other=FindWindowW(CONTROL_CLASS,nullptr);if(other){if(!confirmStopBackground(h))return 0;if(IsWindow(other))PostMessageW(other,WM_CLOSE,0,0);}else launchSelf(L"--resident");EnableWindow(backgroundToggle,FALSE);return 0;}
   if(id==131){DestroyWindow(h);return 0;}break;}
- case WM_TIMER:if(w==32){HWND other=FindWindowW(CONTROL_CLASS,nullptr);if(!other&&!residentMode&&EntryMaintenance::tick())PostMessageW(h,WM_CONFIG,0,0);}return 0;
+ case WM_TIMER:if(w==32){refreshBackgroundState();HWND other=FindWindowW(CONTROL_CLASS,nullptr);if(!other&&!residentMode&&EntryMaintenance::tick())PostMessageW(h,WM_CONFIG,0,0);}return 0;
  case WM_CONFIG:mergeExternalRulesIntoDraft();refreshEntries();refreshRules(listDesktop,true);return 0;
  case WM_GETMINMAXINFO:{auto* info=reinterpret_cast<MINMAXINFO*>(l);RECT minRect{0,0,840,0};AdjustWindowRectEx(&minRect,(DWORD)GetWindowLongPtrW(h,GWL_STYLE),FALSE,(DWORD)GetWindowLongPtrW(h,GWL_EXSTYLE));info->ptMinTrackSize.x=minRect.right-minRect.left;info->ptMinTrackSize.y=400;return 0;}
  case WM_SIZE:{RECT rc{};GetClientRect(h,&rc);layoutSettings(rc.right);scrollSettings(settingsScroll);return 0;}
@@ -233,8 +250,9 @@ static LRESULT CALLBACK proc(HWND h,UINT m,WPARAM w,LPARAM l){
   case SB_PAGEUP:next-=rc.bottom;break;case SB_PAGEDOWN:next+=rc.bottom;break;
   case SB_THUMBTRACK:case SB_THUMBPOSITION:{SCROLLINFO i{sizeof(i),SIF_TRACKPOS};GetScrollInfo(h,SB_VERT,&i);next=i.nTrackPos;break;}
  }scrollSettings(next);return 0;}
+ case WM_CTLCOLORSTATIC:if((HWND)l==backgroundHelp||(HWND)l==backgroundHelpTitle||(HWND)l==backgroundHelpBody){SetTextColor((HDC)w,RGB(27,66,109));SetBkColor((HDC)w,RGB(234,244,255));return (LRESULT)(helpBrush?helpBrush:GetSysColorBrush(COLOR_WINDOW));}break;
  case WM_CLOSE:DestroyWindow(h);return 0;
- case WM_DESTROY:settingsWindow=nullptr;if(font){DeleteObject(font);font=nullptr;}if(!residentMode&&!panelWindow)PostQuitMessage(0);return 0;}
+ case WM_DESTROY:settingsWindow=nullptr;if(helpFont){DeleteObject(helpFont);helpFont=nullptr;}if(helpBrush){DeleteObject(helpBrush);helpBrush=nullptr;}if(font){DeleteObject(font);font=nullptr;}if(!residentMode&&!panelWindow)PostQuitMessage(0);return 0;}
  return DefWindowProcW(h,m,w,l);}
 static void revealSettings(){
  if(!settingsWindow)return;

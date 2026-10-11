@@ -98,7 +98,7 @@ static void showContextMenu(HWND h,int item){
  if(eligible){target=items[item].path;selected=item;paintPanel();}
  HMENU menu=CreatePopupMenu();bool enabled=eligible&&FolderRules::contains(folderRules,target,false);
  if(eligible){AppendMenuW(menu,MF_STRING|(enabled?MF_CHECKED:0),5,L"在面板内展开");AppendMenuW(menu,MF_STRING,6,L"在资源管理器中打开此文件夹");AppendMenuW(menu,MF_SEPARATOR,0,nullptr);}
- AppendMenuW(menu,MF_STRING,4,L"排序与整理…");AppendMenuW(menu,MF_STRING,1,L"设置外观与运行模式…");AppendMenuW(menu,MF_STRING,2,L"在资源管理器中打开当前文件夹");AppendMenuW(menu,MF_STRING,3,L"关闭");
+ AppendMenuW(menu,MF_STRING,4,L"排序与整理…");AppendMenuW(menu,MF_STRING,1,L"设置外观与后台…");AppendMenuW(menu,MF_STRING,2,L"在资源管理器中打开当前文件夹");AppendMenuW(menu,MF_STRING,3,L"关闭");
  POINT p;GetCursorPos(&p);menuActive=true;int id=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY,p.x,p.y,0,h,nullptr);DestroyMenu(menu);menuActive=true;
  if(id==5&&eligible){std::wstring error;if(!EntryActions::setPanelExpansion(target,!enabled,error))MessageBoxW(h,error.c_str(),L"设置未保存",MB_OK|MB_ICONERROR);else{HWND other=FindWindowW(CONTROL_CLASS,nullptr);if(other&&other!=controller)SendMessageW(other,WM_CONFIG,0,0);}paintPanel();}
  if(id==6&&eligible){if(openShellPath(h,target,true))closePanel();}

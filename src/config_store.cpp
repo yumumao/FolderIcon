@@ -21,7 +21,10 @@ static bool writeConfigTo(const std::wstring& file){
  bool ok=true;
  auto set=[&](const wchar_t* section,const wchar_t* key,const std::wstring& value){ok=WritePrivateProfileStringW(section,key,value.c_str(),file.c_str())&&ok;};
  set(L"General",L"DesktopPath",cfg.desktopPath);
- set(L"General",L"Resident",std::to_wstring(cfg.resident));set(L"General",L"ContextMenu",std::to_wstring(cfg.contextMenu));
+ // AutoStart is a login preference, never permission to run the listener.
+ // Mirror the legacy key for older binaries; the new key takes precedence.
+ set(L"General",L"AutoStart",std::to_wstring(cfg.autoStart));
+ set(L"General",L"Resident",std::to_wstring(cfg.autoStart));set(L"General",L"ContextMenu",std::to_wstring(cfg.contextMenu));
  for(auto p:{std::pair<const wchar_t*,int>{L"IconSize",cfg.icon},{L"CellWidth",cfg.cellW},{L"CellHeight",cfg.cellH},{L"Columns",cfg.columns},{L"Opacity",cfg.opacity},{L"Radius",cfg.radius},{L"Blur",cfg.blur},{L"FollowDesktop",cfg.followDesktop},{L"FollowDesktopFont",cfg.followFont},{L"FontSize",cfg.fontSize},{L"TextGap",cfg.textGap},{L"ExpandDelay",cfg.expandDelay},{L"DotNamesHidden",cfg.dotHidden},{L"ShowHidden",cfg.showHidden}})set(L"Appearance",p.first,std::to_wstring(p.second));
  wchar_t color[8];swprintf(color,8,L"%02X%02X%02X",GetRValue(cfg.background),GetGValue(cfg.background),GetBValue(cfg.background));set(L"Appearance",L"Background",color);
 int previousCount=GetPrivateProfileIntW(L"CustomEntries",L"Count",0,file.c_str());std::vector<std::wstring> previousIds;for(int i=0;i<previousCount&&i<=1024;++i){wchar_t id[80]{};GetPrivateProfileStringW(L"CustomEntries",(L"Id"+std::to_wstring(i)).c_str(),L"",id,80,file.c_str());if(id[0])previousIds.emplace_back(id);}
@@ -59,7 +62,7 @@ bool saveConfig(const wchar_t* runSubkey){
  if((error!=ERROR_SUCCESS&&error!=ERROR_FILE_NOT_FOUND)||size>1024*1024){RegCloseKey(key);cleanup();return false;}
  if(existed){before.resize(size);error=RegQueryValueExW(key,L"FolderIconCN",nullptr,&type,before.data(),&size);if(error!=ERROR_SUCCESS){RegCloseKey(key);cleanup();return false;}before.resize(size);}
  auto value=L"\""+exePath+L"\" --resident";
- if(cfg.resident)error=RegSetValueExW(key,L"FolderIconCN",0,REG_SZ,(const BYTE*)value.c_str(),(DWORD)((value.size()+1)*sizeof(wchar_t)));
+ if(cfg.autoStart)error=RegSetValueExW(key,L"FolderIconCN",0,REG_SZ,(const BYTE*)value.c_str(),(DWORD)((value.size()+1)*sizeof(wchar_t)));
  else{error=RegDeleteValueW(key,L"FolderIconCN");if(error==ERROR_FILE_NOT_FOUND)error=ERROR_SUCCESS;}
  if(error!=ERROR_SUCCESS){configSaveError=L"无法更新本工具的启动项，配置未应用。";RegCloseKey(key);cleanup();return false;}
  ok=MoveFileExW(temp.c_str(),iniPath.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE;
