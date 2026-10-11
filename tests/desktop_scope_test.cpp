@@ -11,8 +11,17 @@ int wmain(int argc,wchar_t** argv){
  baseDir=argv[1];dir(baseDir);iniPath=baseDir+L"\\FolderIcon.ini";exePath=baseDir+L"\\FolderIconCN.exe";
  auto desktop=baseDir+L"\\桌面 A",child=desktop+L"\\真文件夹",nested=child+L"\\子文件夹",outside=baseDir+L"\\外部目录";
  dir(desktop);dir(child);dir(nested);dir(outside);
+ // A missing INI is created as ANSI even by WritePrivateProfileStringW.
+ // Match the application's fresh-config format; retain the Chinese path coverage.
+ FILE* initialIni=_wfopen(iniPath.c_str(),L"wb");check(initialIni!=nullptr,"create Unicode fixture INI");
+ const WORD unicodeBom=0xfeff;size_t initialized=fwrite(&unicodeBom,sizeof(unicodeBom),1,initialIni);int closed=fclose(initialIni);
+ check(initialized==1&&closed==0,"initialize UTF-16 fixture INI");
  check(WritePrivateProfileStringW(L"General",L"DesktopPath",desktop.c_str(),iniPath.c_str())!=FALSE,"write desktop override");
- loadConfig();bool already=false;std::wstring warning,error;
+ // Keep the fixture independent of the runner's ANSI code page.
+ FILE* iniFile=_wfopen(iniPath.c_str(),L"rb");check(iniFile!=nullptr,"open fixture INI");
+ WORD fixtureBom=0;size_t bomRead=fread(&fixtureBom,sizeof(fixtureBom),1,iniFile);fclose(iniFile);
+ check(bomRead==1&&fixtureBom==0xfeff,"fixture INI uses UTF-16 on every code page");
+ loadConfig();check(cfg.desktopPath==desktop,"Chinese desktop path round trips before shared action");bool already=false;std::wstring warning,error;
  check(EntryActions::enableDesktopFolder(child,already,warning,error),"configured desktop child accepted by shared service");
  check(warning.empty()&&!already,"first enable adds badge without warning");
  check(!EntryActions::enableDesktopFolder(desktop,already,warning,error),"desktop root rejected");

@@ -30,6 +30,14 @@
 
 构建过程中存在Zig/libunwind的工具链警告；成功退出不能表述为零警告构建。
 
+## 云端构建与测试编码 / Cloud-test portability
+
+发布后的首轮WindowsServer2022云端构建在桌面范围测试失败：测试直接向不存在的INI写入中文路径，导致夹具使用系统ANSI代码页。中文本机掩盖了这一问题，英文环境无法保存同样的路径。默认分支已将该夹具初始化为UTF-16，并增加编码与中文路径往返断言；没有改成英文目录来绕过覆盖。
+
+这次后续提交只修正测试和验证说明，不修改产品源码、已发布的`v2.0.0-rc.1`标签或下载附件。发行标签仍保留原来的48项桌面范围检查，修正后的测试增加5项夹具检查。重建时请使用默认分支，具体构建结果见[GitHub Actions](https://github.com/yumumao/FolderIcon/actions/workflows/build-release.yml)。
+
+The first post-release Windows Server 2022 CI run failed because the desktop-scope test created an ANSI INI containing Chinese paths. The default branch now explicitly initializes that fixture as UTF-16 and checks both its encoding and the exact path round trip. This test-only follow-up does not change application sources, the published tag, or release assets. Use the default branch to reproduce the corrected test suite; the original tag retains the original fixture.
+
 ## Reproduction
 
 Run `scripts/build.ps1` with Windows x64 and Zig 0.13.0. The script executes the native test suite before compiling the application. GUI screenshots and settings checks used isolated synthetic data. Local deployment evidence is deliberately not published.
