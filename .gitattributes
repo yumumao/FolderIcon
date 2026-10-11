@@ -28,3 +28,6 @@
 /AGENTS.md export-ignore
 .gitattributes text eol=lf
 .gitignore text eol=lf
+
+/assets/app.ico binary
+*.rc text eol=crlf

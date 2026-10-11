@@ -45,6 +45,10 @@
 **/out/
 **/bin/
 **/obj/
+**/cache/
+**/layout/
+**/*.order
+**/*.fic
 **/.zig-cache/
 **/zig-out/
 **/.vs/
@@ -70,3 +74,21 @@
 **/*.p12
 **/credentials*
 **/secrets*
+# Only the original application icon is public; personal icons remain excluded.
+!/assets/
+/assets/*
+!/assets/app.ico
+!/src/app.rc
+!/scripts/generate-icon.ps1
+!/scripts/generate-panel-badge.ps1
+
+# Reviewed bilingual docs and synthetic demo screenshots only.
+!/README.en.md
+!/scripts/package-release.ps1
+!/docs/RELEASE-v2.0.0-rc.1.md
+!/docs/images/
+/docs/images/*
+!/docs/images/panel.png
+!/docs/images/subfolder.png
+!/docs/images/settings-appearance.png
+!/docs/images/settings-entries.png

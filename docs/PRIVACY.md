@@ -1,26 +1,32 @@
-# 隐私与发布规则
+# 隐私与发布规则 / Privacy and publishing
 
-## 三道保护
+## 只发布明确允许的文件
 
-1. `.gitignore`采用根目录默认拒绝，再开放必要源码、测试、构建脚本和公共文档。即使新增临时根文件，普通git add也不会自动纳入。
-2. `.gitattributes`规范换行、标记二进制，并给本机协作目录与成品目录加export-ignore。export-ignore只影响git archive，不保护提交历史。
-3. `scripts/check-publish.ps1`检查整个暂存区的路径白名单与文本风险。提交前必须通过；不能只检查git status后直接推送。
+- 源码、测试、构建/打包/检查脚本、无私人路径的示例配置。
+- 中英文README、发布说明、验证和来源文档。
+- 原创应用图标、明确审核的合成演示截图，以及保留的上游截图。
+- 发行附件仅包含公开源码对应的EXE、公开文档及图片、示例配置和SHA256校验文件。
 
-## 不得上传
+不发布：`FolderIcon.ini`、私人ICO、桌面快捷方式、文件列表、个人路径、恢复记录、缓存/排序数据、访问令牌、账号密码、AI协作记录或本地部署证据。`dist/`及工具侧目录保持忽略；EXE以单独审核的Release附件提供，不入Git源码历史。
 
-- 本地FolderIcon.ini、真实文件夹目标、用户目录与机器名。
-- 个人ICO、桌面快捷方式、桌面截图与诊断/测试材料。
-- .codex、.claude、.shared、备份、工作流水、会话和接续记录。
-- 编译器、缓存、中间产物、EXE/ZIP/调试符号。
-- .env、访问令牌、密码、私钥和凭据文件。
+## 防误提交
 
-只允许无个人目标的config/FolderIcon.example.ini。用户实际配置应保存为EXE同目录下的FolderIcon.ini，并保持未跟踪。代码默认目标从Windows Known Folder API获取，不写死开发者的目录。
+根目录默认拒绝式`.gitignore`；`scripts/check-publish.ps1`按精确白名单扫描**暂存区实际内容**，并检查敏感模式、文件大小、换行和忽略规则。新增公开文件必须同时更新白名单。图片由人/工具视觉复核，仅放行明确文件名，不开放整个截图目录。
 
-## 提交流程
+```powershell
+.\scripts\check-publish.ps1
+```
 
-- 仅git add明确列出的公共文件，不使用git add .或git add -f。
-- 运行check-publish.ps1，再检查git diff --cached --stat和git diff --cached --check。
-- 确认新提交的作者/提交者邮箱为GitHub noreply；不更改上游历史的作者归属。
-- 核查新分支的新增提交后再推送；本轮不创建标签、Release或上游PR。
+`.gitattributes`负责换行与archive导出规则，不阻止文件进入历史。不要用`git add -f`绕过忽略规则，也不要认为删除工作目录中的文件能清除已提交的秘密。
 
-`.gitignore`不影响已经被跟踪的文件。若误入敏感文件，不应认为删掉工作目录中的文件即可解决；先停止推送并检查全部待发布历史。这里的检查器是防误提交措施，不是对未知秘密格式的绝对保证。
+## 构建与打包
+
+本地构建脚本不读取个人配置；`scripts/package-release.ps1`只复制精确公开文件清单，不递归打包`dist/`。发布前核对ZIP清单、EXE哈希、文档图片链接和真实图像内容。示例配置保留`.example.ini`后缀，升级时不会冒充现有运行配置。
+
+任何凭据只通过GitHub CLI的正常认证途径使用，不写入仓库、发布脚本、命令参数、截图或日志。不公开真实桌面的操作录像。隐私检查器是防误提交措施，不是对全部未知秘密格式的绝对保证。
+
+## English
+
+Only explicitly allowlisted source, tests, tooling, example configuration, public documentation, the application icon, and reviewed synthetic screenshots are eligible for Git. The staged index is inspected, not just working-tree files.
+
+Release packaging copies an exact public file list, never an entire local deployment folder. Runtime INI files, personal icons and shortcuts, recovery records, caches, file listings, credentials, and local collaboration/evidence files are excluded. Screenshots are visually reviewed. This is defense in depth, not a guarantee that every possible secret format can be detected.

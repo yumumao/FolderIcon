@@ -1,46 +1,50 @@
-name: Build and Release
+name: Build Chinese preview
 
 on:
+  workflow_dispatch:
   push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+    branches: [master, feature/chinese-dual-mode]
+    tags: ['v2.*']
+  pull_request:
+    branches: [master, feature/chinese-dual-mode]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
-    runs-on: windows-latest
-
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Build Release x64
-        run: msbuild FolderIcon.sln /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143
-
-      - name: Get version from tag
-        id: version
-        shell: bash
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Review public index
+        run: ./scripts/check-publish.ps1
+      - name: Install verified Zig 0.13.0
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'zig-0.13.0.zip'
+          Invoke-WebRequest 'https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip' -OutFile $zip
+          $expected = 'd859994725ef9402381e557c60bb57497215682e355204d754ee3df75ee3c158'
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Compiler checksum mismatch' }
+          Expand-Archive -LiteralPath $zip -DestinationPath $env:RUNNER_TEMP
+      - name: Test and build FolderIconCN
+        run: |
+          ./scripts/build.ps1 -Zig "$env:RUNNER_TEMP/zig-windows-x86_64-0.13.0/zig.exe" -BuildRoot "$env:RUNNER_TEMP/foldericon-build" -OutputDirectory "$env:RUNNER_TEMP/foldericon-output"
+      - name: Package public files only
+        run: |
+          ./scripts/package-release.ps1 -Version 'v2.0.0-rc.1' -Exe "$env:RUNNER_TEMP/foldericon-output/FolderIconCN.exe" -OutputDirectory "$env:RUNNER_TEMP/foldericon-package"
+      - name: Upload reviewed build artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: FolderIcon ${{ steps.version.outputs.VERSION }}
-          body: |
-            ## FolderIcon ${{ steps.version.outputs.VERSION }}
+          name: FolderIconCN-win-x64
+          path: |
+            ${{ runner.temp }}/foldericon-package/FolderIconCN.exe
+            ${{ runner.temp }}/foldericon-package/FolderIconCN-*.zip
+            ${{ runner.temp }}/foldericon-package/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
 
-            ### Installation
-            1. Download `FolderIcon.exe` below
-            2. Place it in a folder of your choice
-            3. Follow the [tutorial](README.md#tutorial-create-a-custom-taskbar-launcher) to set up your taskbar launcher
-
-            ### Changes
-            See [README.md](README.md) for usage instructions.
-          files: bin/Release/FolderIcon.exe
-          draft: false
-          prerelease: false
+# This workflow does not publish a Release. Attach only accepted, reviewed artifacts
+# to a manually approved release. Never ship the legacy FolderIcon.exe as FolderIconCN.
