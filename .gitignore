@@ -82,7 +82,7 @@
 !/scripts/generate-icon.ps1
 !/scripts/generate-panel-badge.ps1
 
-# Reviewed bilingual docs and synthetic demo screenshots only.
+# Reviewed bilingual docs and explicitly approved screenshots only.
 !/README.en.md
 !/scripts/package-release.ps1
 !/docs/RELEASE-v2.0.0-rc.1.md
@@ -92,3 +92,5 @@
 !/docs/images/subfolder.png
 !/docs/images/settings-appearance.png
 !/docs/images/settings-entries.png
+!/docs/images/real-desktop-orange.png
+!/docs/images/real-shortcut-blue.png

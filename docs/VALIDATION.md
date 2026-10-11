@@ -13,7 +13,7 @@
 - 部署前后正式INI与真实快捷方式哈希不变；后台单实例、静默启动。
 - 2026-10-12用户反馈候选已经可以使用，授权README与发布。
 
-公开截图只使用合成演示目录；原始测试日志、真实桌面路径、个人INI和部署记录不进入Git或发行包。
+公开配图包括四张合成演示截图，以及两张经用户授权、名称已脱敏的真实目录截图。后两张使用相同发布EXE的隔离副本，只读打开授权目录，采集前替换标题及条目名称；真实INI、EXE、快捷方式与图标资源前后哈希不变。没有保存未脱敏截图。补图不是新增功能验收，不据此扩展桌面点击或右键入口的验证范围；原始测试日志、真实桌面路径、个人INI和部署记录不进入Git或发行包。
 
 ## 资源样本
 
@@ -40,6 +40,6 @@ The first post-release Windows Server 2022 CI run failed because the desktop-sco
 
 ## Reproduction
 
-Run `scripts/build.ps1` with Windows x64 and Zig 0.13.0. The script executes the native test suite before compiling the application. GUI screenshots and settings checks used isolated synthetic data. Local deployment evidence is deliberately not published.
+Run `scripts/build.ps1` with Windows x64 and Zig 0.13.0. The script executes the native test suite before compiling the application. The original four GUI screenshots and settings checks used isolated synthetic data. Two additional owner-authorized real-folder views were captured using the same release binary in an isolated directory, with irreversible title and item-name masks applied before capture. The documentation update does not expand the functional acceptance scope or replace published release assets. Local deployment evidence is deliberately not published.
 
 The user accepted the local candidate, but this preview does not claim a complete Windows-version, interaction, DPI, stress, concurrency, or licensing audit. Resource numbers above describe one short sample only.

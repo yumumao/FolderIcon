@@ -14,7 +14,7 @@ Native Win32 · No resident process in on-demand mode · Optional single-click e
 
 FolderIcon opens frequently used folders as compact panels. Create a desktop launcher for a folder elsewhere, or enable panel expansion for an **existing real desktop folder without moving, replacing, or deleting it**.
 
-This is an independent Chinese-language fork of [ltrudu/FolderIcon](https://github.com/ltrudu/FolderIcon), not an official upstream release. **v2.0.0-rc.1 is a public preview.** The application UI is currently Simplified Chinese; this document is an English usage guide, not an English UI announcement. Windows 10/11 x64 are the target platforms; hands-on testing has been on Windows 10. All screenshots use synthetic demo data, never a user's real desktop; settings paths are shortened for readability.
+This is an independent Chinese-language fork of [ltrudu/FolderIcon](https://github.com/ltrudu/FolderIcon), not an official upstream release. **v2.0.0-rc.1 is a public preview.** The application UI is currently Simplified Chinese; this document is an English usage guide, not an English UI announcement. Windows 10/11 x64 are the target platforms; hands-on testing has been on Windows 10. The illustrations include four synthetic demo screenshots and two owner-authorized, privacy-masked views of real folders. Demo settings paths are shortened for readability. Real-view titles and item names are masked; personal paths are not shown.
 
 ## Quick start
 
@@ -37,6 +37,20 @@ This is an independent Chinese-language fork of [ltrudu/FolderIcon](https://gith
 | Removal | Removes the managed entry, not its target | Stops interception and safely restores the app-owned folder badge |
 
 Both badges use the same rounded four-cell design with different colors. They **do not remove or replace Windows' shortcut-arrow overlay globally**. Blue badges are part of a shortcut's icon image, not an installed Shell overlay extension.
+
+### Orange badge: expand an existing real desktop folder
+
+This view pairs the existing folder's entry artwork with its actual FolderIcon panel. **Orange identifies a real folder that stays in place.** Desktop click interception requires enhanced mode; without a resident listener, Windows opens the folder normally.
+
+<img src="docs/images/real-desktop-orange.png" width="960" alt="Existing real desktop folder artwork with an orange four-cell badge beside its actual panel; title and all item names are privacy-masked">
+
+### Blue badge: a desktop panel shortcut to a folder elsewhere
+
+This view pairs a desktop panel shortcut with the actual contents of its real target folder. **Blue identifies a separate desktop launcher**, not a moved source directory. Normal Windows activation still opens its panel without a resident listener.
+
+<img src="docs/images/real-shortcut-blue.png" width="960" alt="Desktop panel shortcut artwork with a blue four-cell badge beside its actual panel; title and all item names are privacy-masked">
+
+> Both views are owner-authorized. The left side previews the corresponding existing entry artwork; the right side captures the released application opening a real folder, not an AI-generated UI. Before capture, titles and folder, file, and shortcut names were replaced with irreversible blur-style privacy masks. Icons, badges, controls, and panel layout remain clear. These are the examples' existing icon choices, not artwork automatically applied to every installation.
 
 ### Entry settings and desktop location
 

@@ -4,10 +4,16 @@
 
 - 源码、测试、构建/打包/检查脚本、无私人路径的示例配置。
 - 中英文README、发布说明、验证和来源文档。
-- 原创应用图标、明确审核的合成演示截图，以及保留的上游截图。
+- 原创应用图标、明确审核的合成演示截图、经用户明确授权且名称已脱敏的真实目录截图，以及保留的上游截图。
 - 发行附件仅包含公开源码对应的EXE、公开文档及图片、示例配置和SHA256校验文件。
 
 不发布：`FolderIcon.ini`、私人ICO、桌面快捷方式、文件列表、个人路径、恢复记录、缓存/排序数据、访问令牌、账号密码、AI协作记录或本地部署证据。`dist/`及工具侧目录保持忽略；EXE以单独审核的Release附件提供，不入Git源码历史。
+
+## 真实目录截图的授权与脱敏
+
+`docs/images/real-desktop-orange.png`和`docs/images/real-shortcut-blue.png`是两张明确授权的文档配图，不是整个桌面的截图。现有入口图案单独预览，展开面板由发布版程序的隔离副本打开真实目录后截取；不修改真实配置、桌面入口、图标资源或源文件。
+
+采集前用完全不含原字形的模糊遮罩替换面板标题与所有条目名称，不是可依稀辨认的轻度模糊。不保存未脱敏截图，不公开个人路径、目录列表、原始ICO资源或本地证据。公开图片逐一视觉复核；PNG不携带路径或文本元数据。授权仅覆盖这两张已审核图片，不自动扩大到其它真实目录。
 
 ## 防误提交
 
@@ -27,6 +33,8 @@
 
 ## English
 
-Only explicitly allowlisted source, tests, tooling, example configuration, public documentation, the application icon, and reviewed synthetic screenshots are eligible for Git. The staged index is inspected, not just working-tree files.
+Only explicitly allowlisted source, tests, tooling, example configuration, public documentation, the application icon, reviewed synthetic screenshots, and explicitly authorized, privacy-masked real-folder views are eligible for Git. The staged index is inspected, not just working-tree files.
 
 Release packaging copies an exact public file list, never an entire local deployment folder. Runtime INI files, personal icons and shortcuts, recovery records, caches, file listings, credentials, and local collaboration/evidence files are excluded. Screenshots are visually reviewed. This is defense in depth, not a guarantee that every possible secret format can be detected.
+
+The two real-folder views use irreversible live name masks before screen capture. No unmasked screenshot is saved. Entry artwork is previewed separately from the actual panel. Only the two reviewed PNGs are public; original icon resources, folder listings, personal paths, and local evidence remain excluded.

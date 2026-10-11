@@ -28,7 +28,7 @@ try {
         'scripts/build.ps1', 'scripts/check-publish.ps1', 'scripts/package-release.ps1',
         'docs/RELEASE-v2.0.0-rc.1.md',
         'docs/images/panel.png', 'docs/images/subfolder.png',
-        'docs/images/settings-appearance.png', 'docs/images/settings-entries.png',
+        'docs/images/settings-appearance.png', 'docs/images/settings-entries.png', 'docs/images/real-desktop-orange.png', 'docs/images/real-shortcut-blue.png',
         'config/FolderIcon.example.ini', 'docs/PRIVACY.md',
         'docs/UPSTREAM.md', 'docs/VALIDATION.md', 'docs/dark.png', 'docs/light.png'
     )
@@ -49,7 +49,7 @@ try {
         if ($LASTEXITCODE) { throw "Cannot read index blob: $file" }
         if ([long]$size -gt 2097152) { $errors.Add("Oversized file: $file") }
         # Only explicitly reviewed public screenshots and the application icon may be binary.
-        if ($file -in @('docs/dark.png', 'docs/light.png', 'assets/app.ico', 'docs/images/panel.png', 'docs/images/subfolder.png', 'docs/images/settings-appearance.png', 'docs/images/settings-entries.png')) { continue }
+        if ($file -in @('docs/dark.png', 'docs/light.png', 'assets/app.ico', 'docs/images/panel.png', 'docs/images/subfolder.png', 'docs/images/settings-appearance.png', 'docs/images/settings-entries.png', 'docs/images/real-desktop-orange.png', 'docs/images/real-shortcut-blue.png')) { continue }
         $content = (git show ":$file") -join "`n"
         if ($LASTEXITCODE) { throw "Cannot read staged content: $file" }
         foreach ($item in $patterns.GetEnumerator()) {
