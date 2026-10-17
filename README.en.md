@@ -4,9 +4,9 @@
 
 **Open desktop folders like folders on your phone. Keep everything in place.**
 
-Native Win32 · No background process unless started · Optional single-click expansion
+Native Win32 · Three entry tabs · Single-click opening · Monitor-aware windows
 
-[简体中文](README.md) · [Downloads](https://github.com/yumumao/FolderIcon/releases) · [Release notes](docs/RELEASE-v2.0.0-rc.2.md) · [Validation](docs/VALIDATION.md)
+[简体中文](README.md) · [Downloads](https://github.com/yumumao/FolderIcon/releases) · [Release notes](docs/RELEASE-v2.0.0-rc.3.md) · [Validation](docs/VALIDATION.md)
 
 <img src="docs/images/hero-click-expand.png" width="960" alt="Click-flow illustration: a blue-badged desktop folder shortcut opens an actual content panel like a phone folder; the title and item names are privacy-masked">
 
@@ -14,31 +14,29 @@ Native Win32 · No background process unless started · Optional single-click ex
 
 FolderIcon opens frequently used folders as compact panels. Create a desktop launcher for a folder elsewhere, or enable panel expansion for an **existing real desktop folder without moving, replacing, or deleting it**.
 
-This is an independent Chinese-language fork of [ltrudu/FolderIcon](https://github.com/ltrudu/FolderIcon), not an official upstream release. **v2.0.0-rc.2 is a public preview.** The application UI is currently Simplified Chinese; this document is an English usage guide, not an English UI announcement. Windows 10/11 x64 are the target platforms; hands-on testing has been on Windows 10. The README shows one click-flow illustration, four synthetic demo screenshots (including exit confirmation), and two owner-authorized, privacy-masked views of real folders. The hero reuses reviewed entry artwork and an actual panel; its desktop selection, pointer, and shortcut arrow are illustrative, not a full desktop capture. The actual panel is not redrawn. Demo settings paths are shortened for readability. Real-view titles and item names are masked; personal paths are not shown.
+This is an independent Chinese-language fork of [ltrudu/FolderIcon](https://github.com/ltrudu/FolderIcon), not an official upstream release. **v2.0.0-rc.3 is a public preview.** The application UI is currently Simplified Chinese; this document is an English usage guide, not an English UI announcement. Windows 10/11 x64 are the target platforms; hands-on testing has been on Windows 10. The README reuses reviewed click-flow, panel, settings and exit-confirmation illustrations, plus two owner-authorized, privacy-masked views of real folders. The hero reuses reviewed entry artwork and an actual panel; its desktop selection, pointer, and shortcut arrow are illustrative, not a full desktop capture. The actual panel is not redrawn. Demo settings paths are shortened for readability. Real-view titles and item names are masked; personal paths are not shown.
 
-> **New in rc.2:** removes the confusing mode selector, fixes silent `--resident` startup, separates background state from login startup, and adds a visible exit explanation with a cancel-by-default confirmation. The rc.1 tag and downloads remain unchanged.
+> **New in rc.3:** choose how each desktop item opens from its context menu; manage blue, orange and green entries in three tabs; use a centered green arrow badge; launch on mouse release without the double-click delay; and place new or reactivated windows on the icon's monitor. See [release notes](docs/RELEASE-v2.0.0-rc.3.md) and [desktop opening modes](docs/DESKTOP-MODES.md). Existing rc.1 and rc.2 tags and downloads are retained.
 
 ## Quick start
 
-1. Download `FolderIconCN-v2.0.0-rc.2-win-x64.zip` from [Releases](https://github.com/yumumao/FolderIcon/releases) and extract it to a writable, permanent location. Do not run inside the ZIP.
+1. Download `FolderIconCN-v2.0.0-rc.3-win-x64.zip` from [Releases](https://github.com/yumumao/FolderIcon/releases) and extract it to a writable, permanent location. Do not run inside the ZIP.
 2. Run `FolderIconCN.exe` to open settings. Opening settings does not automatically start a listener or register login startup or a context menu.
-3. In the left-hand **添加其它文件夹到桌面（蓝色角标）** section, click **选择文件夹并创建…**, select a folder, and confirm.
-4. Activate the new blue-badged desktop shortcut using your normal Windows click setting, usually a double-click. The process exits when the panel closes.
-5. For single-click expansion or interception of real desktop folders, click **启动后台** (Start background). Optionally enable and save **开机静默启动（内置启动项）** (Built-in silent login startup) separately.
+3. Open **管理桌面入口…** (Manage desktop entries). Use blue for folder launchers, orange for real desktop folders, or green for direct opening of desktop folders and shortcuts.
+4. Add, remove, reapply badges or change opening modes in that window. Existing folders stay in place; generated blue launchers point to the original folders.
+5. For desktop single-click actions and monitor following, click **启动后台** (Start background). Optionally enable and save **开机静默启动（内置启动项）** (Built-in silent login startup) separately.
 
-> **Upgrading:** exit the listener, back up the whole application directory, and replace the EXE. Keep `FolderIcon.ini`, `icons/`, `folder-badges/`, and sorting data. Do not relocate the EXE without updating its shortcuts. The release includes only an example INI, never someone's runtime configuration.
+> **Upgrading:** exit the listener, back up the whole application directory, and replace the EXE. Keep `FolderIcon.ini`, `icons/`, `folder-badges/`, `desktop-modes.ini`, `mode-backups/`, and sorting data. Do not relocate the EXE without updating its shortcuts. The release includes only an example INI, never someone's runtime configuration.
 
-## Two kinds of desktop entry
+## Three kinds of desktop entry
 
-| | Blue badge: panel shortcut | Orange badge: real desktop folder |
-| --- | --- | --- |
-| Target | Any accessible folder | A direct child of the configured desktop |
-| Change | Creates a desktop `.lnk`; leaves the source folder alone | Keeps the real directory in place; no substitute shortcut |
-| Without a resident listener | Opens a panel when normally activated | Opens in Explorer as usual |
-| Background running | Single-click panel; double-click Explorer | Single-click panel; double-click Explorer |
-| Removal | Removes the managed entry, not its target | Stops interception and safely restores the app-owned folder badge |
+| Type | Supported items | With the background listener | Removing the entry |
+| --- | --- | --- | --- |
+| Blue four-cell badge | New folder launchers or existing folder shortcuts | Single-click panel expansion | Deletes generated links or restores existing links; keeps the source folder |
+| Orange four-cell badge | First-level real desktop folders | Single-click panel expansion in place | Restores the icon and default behavior; keeps the folder |
+| Green arrow | First-level desktop folders and `.lnk` shortcuts | Opens on release; window follows the icon's monitor | Restores the icon and click behavior; keeps the item |
 
-Both badges use the same rounded four-cell design with different colors. They **do not remove or replace Windows' shortcut-arrow overlay globally**. Blue badges are part of a shortcut's icon image, not an installed Shell overlay extension.
+All badges share upper-right placement, rounded shape and white outline. They do not remove Windows' shortcut-arrow overlay or install a Shell overlay extension. Without the listener, generated blue launchers still open panels through normal Windows activation; ordinary shortcuts and real folders follow system behavior.
 
 ### Orange badge: expand an existing real desktop folder
 
@@ -56,13 +54,13 @@ This view pairs a desktop panel shortcut with the actual contents of its real ta
 
 ### Entry settings and desktop location
 
-<img src="docs/images/settings-entries.png" width="980" alt="Entry management settings: blue shortcuts on the left, real desktop folders on the right, with repair and cleanup buttons">
+Settings → **管理桌面入口…** opens three tabs with Add, Remove selected, Reapply badge and Change opening mode actions. Orange lists first-level real desktop folders; green accepts real folders and shortcuts. Application/file shortcuts cannot expand as panels.
 
-- The **left column** can browse folders on other drives and create desktop launchers.
-- The **right column** lists only first-level real folders of the configured desktop, not files, shortcuts, or nested directories.
-- Windows' actual desktop location is detected automatically. **指定桌面位置…** selects an override; **恢复自动识别** restores automatic detection.
-- An override changes FolderIcon's scope only. It neither moves files nor changes the Windows desktop location, and does not intercept arbitrary Explorer windows.
-- Shortcut creation/removal, badge repair, and cleanup take effect **immediately after confirmation**. Canceling settings does not undo them. Appearance, login startup, desktop location, and edits to the real-folder list require Save and apply.
+- Management actions take effect immediately; closing the manager or canceling settings does not undo them. Removal explains its scope, and the three built-in blue entries remain available.
+- Appearance, login startup and desktop location require Save and apply. The manager preserves unsaved appearance edits; save a changed desktop location before opening it.
+- Windows' desktop location is detected automatically and can be overridden or reset. This changes FolderIcon's scope, not the Windows desktop or file locations, and does not intercept arbitrary Explorer windows.
+
+The appearance screenshot below is retained from rc.2; rc.3 entry management uses the separate tabbed window described above.
 
 ## Expand selected subfolders inside the panel
 
@@ -75,8 +73,8 @@ Use the prominent **返回** (Back) button or **double-click blank space inside 
 ## Restore the blue badge after changing an icon
 
 1. Change a managed shortcut's icon through its normal Windows Properties dialog.
-2. Open FolderIcon settings and select that generated entry in the left-hand list.
-3. Click **重加蓝色角标…** (Reapply blue badge) and confirm. No extra Save click is needed.
+2. Open FolderIcon settings and open **管理桌面入口… → 蓝色** and select that entry.
+3. Click **重加角标** (Reapply blue badge) and confirm. No extra Save click is needed.
 
 FolderIcon overlays the badge onto the shortcut's **current custom artwork**, writes an independent icon, and updates the shortcut. It does not revert your artwork, edit your original ICO, or alter the source folder's icon. ICO files and DLL/EXE icon resources are supported. Repeating the operation does not stack badges; unreadable custom icons produce an error rather than a silent fallback.
 
@@ -92,14 +90,17 @@ Deleting a generated desktop shortcut, either in settings or directly on the des
 
 ## Optional Explorer context menu
 
-Enable **在文件夹右键菜单中添加“添加到FolderIcon面板”** in settings and save. Uncheck and save to unregister it.
+Settings → **管理桌面入口…** opens three tabs for blue panel shortcuts, orange desktop folders, and green direct-open entries. Add, remove, reapply badges and change modes there; changes take effect immediately.
 
-Right-click a folder and choose **添加到FolderIcon面板**. A choice dialog appears first:
+Enable **FolderIcon打开方式…** for folders and shortcuts in settings. Right-click a first-level desktop folder or `.lnk` and choose:
 
-- Create a separate desktop panel shortcut, including for a folder outside the desktop.
-- Enable expansion for the selected existing real desktop folder, without creating a substitute. This option is limited to a direct child of the desktop.
+- **展开面板**: expand a folder or a folder shortcut in place. Disabled for application and file shortcuts.
+- **单击直接打开**: open the directory or launch the shortcut with its original arguments, working directory and show state. Adds a green arrow badge.
+- **恢复默认**: remove this entry's override and restore its icon. Later external edits are protected; conflicts retain recovery files.
 
-Registration is per user and installs no resident Shell extension. On Windows 11, the command may appear under **Show more options**; full Windows 11 interaction has not been tested hands-on.
+Single-click actions need the background listener. Green entries launch on release without waiting for the double-click interval. Rapid repeated clicks open once; the duplicate press/release is ignored. A normal press-and-drag, right-click and Ctrl/Shift selection keep their native behavior. Ordinary files, virtual icons and folders outside the desktop are excluded from direct opening; external folders still offer creation of a separate desktop panel shortcut. This is a per-user menu, not a resident Shell extension. Full Windows 11 interaction remains untested.
+
+FolderIcon also places a green entry's newly opened or reactivated window on the monitor containing the clicked icon. Normal size and maximized/minimized state are retained; oversized windows are fitted to the destination work area. Placement happens once per launch. Third-party launchers, elevated windows, or windows that cannot be safely associated with the launch may retain their application-defined location. See [Desktop opening modes](docs/DESKTOP-MODES.md).
 
 ## Appearance, sorting, and interaction
 
@@ -129,15 +130,15 @@ An existing Startup-folder shortcut **does not need to change**: keep its EXE ta
 
 Legacy `Resident` is used only as a login-startup fallback when `AutoStart` is absent. Saving writes `AutoStart` and mirrors the legacy key for old binaries. Neither value blocks an explicit background start. The tray offers settings and exit, not a mode switch. A highlighted notice beside the settings fields explains that dedicated shortcuts still open panels after exit, while real desktop folders are no longer monitored. Exiting through settings or the tray requires confirmation, with Cancel selected by default; login startup is unchanged.
 
-The default preview delay is 80 ms; Windows' double-click recognition interval is not shortened. Actual response time depends on system load and Shell icon providers.
+The default panel preview delay is 80 ms. Green direct-open entries ignore that setting and do not wait for double-click recognition. Actual opening time still depends on system load, Shell and target startup.
 
 <img src="docs/images/exit-confirmation.png" width="680" alt="Exit confirmation: dedicated launchers still open panels, real folders stop being monitored, Cancel is the default, and login startup is unchanged">
 
 ## Lightweight, with measured limits
 
-Native C++/Win32, without Electron, WebView, or the .NET runtime. Administrator privileges are not required. The rc.2 release EXE is 371,200 bytes, about 362.5 KiB; builds made with other toolchains may differ.
+Native C++/Win32, without Electron, WebView, or the .NET runtime. Administrator privileges are not required. The rc.3 release EXE is 441,856 bytes, about 431.5 KiB; builds made with other toolchains may differ.
 
-An earlier rc.1 Windows 10 idle-listener sample on October 12, 2026 (not a new rc.2 measurement) measured **14.24 MiB working set**, **3.89 MiB private memory**, and no measurable CPU-time increase over 15 seconds. This is **one short sample**, not a memory ceiling or a perpetual zero-CPU claim. See [validation and remaining coverage](docs/VALIDATION.md).
+An earlier rc.1 Windows 10 idle-listener sample on October 12, 2026 (not a new rc.3 measurement) measured **14.24 MiB working set**, **3.89 MiB private memory**, and no measurable CPU-time increase over 15 seconds. This is **one short sample**, not a memory ceiling or a perpetual zero-CPU claim. See [validation and remaining coverage](docs/VALIDATION.md).
 
 ## Command line
 
@@ -174,7 +175,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 `FolderIcon.ini`, generated icons, folder-badge recovery records, caches, and sorting data live beside the EXE. There is no built-in telemetry, account, online updater, or cloud sync.
 
-To stop using the application: remove real-folder expansion rules, remove generated entries, and run badge cleanup; disable the context menu and built-in login startup, manage any manual Startup shortcuts, then exit the background listener. **Do not delete `folder-badges/` before restoring folder icons.** Resolve inaccessible folders or icon conflicts before removing recovery data.
+To stop using the application: restore each managed opening mode, remove real-folder expansion rules, remove generated entries, and run badge cleanup; disable the context menu and built-in login startup, manage any manual Startup shortcuts, then exit the background listener. **Do not delete `folder-badges/` before restoring folder icons.** Resolve inaccessible folders or icon conflicts before removing recovery data.
 
 ## Scope and attribution
 

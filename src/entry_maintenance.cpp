@@ -2,6 +2,7 @@
 #include "entry_actions.h"
 #include "folder_badge.h"
 #include "desktop_scope.h"
+#include "desktop_modes.h"
 #include <set>
 namespace EntryMaintenance {
 namespace {
@@ -27,12 +28,12 @@ Scan scan(const std::vector<std::wstring>&locations){
  }return s;
 }
 bool owned(const std::wstring&p,const Entry&e){auto root=baseDir+L"\\icons\\entries";if(!DesktopScope::directChild(p,root))return false;std::wstring name=PathFindFileNameW(p.c_str());if(!_wcsicmp(name.c_str(),(e.id+L".ico").c_str()))return true;auto prefix=e.id+L"_badge_";if(name.rfind(prefix,0)!=0||name.size()!=prefix.size()+32+4||name.substr(name.size()-4)!=L".ico")return false;return std::all_of(name.begin()+prefix.size(),name.end()-4,[](wchar_t c){return iswxdigit(c)!=0;});}
-bool referenced(const std::wstring&p){if(FolderRules::contains(folderRules,p,true))return true;for(size_t i=3;i<entries.size();++i)if(same(entries[i].target,p))return true;return false;}
+bool referenced(const std::wstring&p){if(!DesktopModes::validStore||DesktopModes::direct(p))return true;if(FolderRules::contains(folderRules,p,true))return true;for(size_t i=3;i<entries.size();++i)if(same(entries[i].target,p))return true;return false;}
 std::wstring unique(){GUID g{};if(FAILED(CoCreateGuid(&g)))return {};wchar_t b[40]{};StringFromGUID2(g,b,40);std::wstring s;for(auto c:std::wstring(b))if(iswxdigit(c))s+=c;return s;}
 struct Watch{std::wstring root;HANDLE h=INVALID_HANDLE_VALUE;};std::vector<Watch>watches;ULONGLONG nextRetry=0,due=0;bool started=false;std::wstring watchedSignature;
 }
 Result reconcile(bool history){
- Result result;loadConfig();
+ Result result;DesktopModes::Guard modeGuard;if(!modeGuard.held){result.deferred=1;return result;}loadConfig();if(!DesktopModes::validStore||DesktopModes::pending()){result.deferred=1;return result;}
  // Invalid or incomplete configuration must never make a referenced badge look orphaned.
  if(GetFileAttributesW(iniPath.c_str())==INVALID_FILE_ATTRIBUTES||GetPrivateProfileIntW(L"CustomEntries",L"Count",0,iniPath.c_str())!=(entries.size()>3?entries.size()-3:0)){result.deferred=1;result.warning=L"配置不完整，本次未清理。";return result;}
  wchar_t format[8]{};GetPrivateProfileStringW(L"FolderRules",L"Format",L"",format,8,iniPath.c_str());if(format[0]&&(wcscmp(format,L"1")||GetPrivateProfileIntW(L"FolderRules",L"Count",-1,iniPath.c_str())!=folderRules.size())){result.deferred=1;return result;}
@@ -46,7 +47,7 @@ Result reconcile(bool history){
  }return result;
 }
 bool repairShortcutBadge(size_t index,size_t&updated,std::wstring&error){
- updated=0;error.clear();if(index>=entries.size()){error=L"请先选中一个展开快捷方式。";return false;}const auto entry=entries[index];auto s=scan(roots());size_t found=0;
+ updated=0;error.clear();DesktopModes::Guard modeGuard;if(!modeGuard.held){error=L"打开方式正在保存，请稍后重试。";return false;}DesktopModes::load();if(!DesktopModes::validStore){error=L"打开方式记录不可读，未修改角标。";return false;}if(index>=entries.size()){error=L"请先选中一个展开快捷方式。";return false;}const auto entry=entries[index];auto s=scan(roots());size_t found=0;for(const auto&item:s.links)if(item.id==entry.id&&DesktopModes::find(item.path)){error=L"此入口已单独设置打开方式，请从该图标的右键菜单切换或恢复默认。";return false;}
  for(const auto&item:s.links){if(item.id!=entry.id)continue;++found;
   if(owned(item.icon,entry)&&GetFileAttributesW(item.icon.c_str())!=INVALID_FILE_ATTRIBUTES)continue;
   HANDLE guard=CreateFileW(item.path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);BY_HANDLE_FILE_INFORMATION identity{};

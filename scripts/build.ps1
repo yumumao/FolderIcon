@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$Zig = 'zig',
     [string]$BuildRoot = (Join-Path ([IO.Path]::GetTempPath()) 'foldericon-build'),
@@ -22,6 +22,14 @@ $env:ZIG_GLOBAL_CACHE_DIR = "$BuildRoot/cache/global"
 $env:ZIG_LOCAL_CACHE_DIR = "$BuildRoot/cache/local"
 Push-Location $BuildRoot
 try {
+    & $zigCommand c++ "$root/tests/launch_geometry_test.cpp" -std=c++17 -O2 -o "$BuildRoot/launch-geometry-test.exe"
+    if ($LASTEXITCODE) { throw 'Launch geometry compilation failed' }
+    & "$BuildRoot/launch-geometry-test.exe"
+    if ($LASTEXITCODE) { throw 'Launch geometry tests failed' }
+    & $zigCommand c++ "$root/tests/fast_direct_click_test.cpp" -std=c++17 -O2 -UNDEBUG -o "$BuildRoot/fast-direct-click-test.exe"
+    if ($LASTEXITCODE) { throw 'Fast click compilation failed' }
+    & "$BuildRoot/fast-direct-click-test.exe"
+    if ($LASTEXITCODE) { throw 'Fast click tests failed' }
     & $zigCommand c++ "$root/tests/core_test.cpp" -std=c++17 -O2 -UNDEBUG -o "$BuildRoot/core-test.exe"
     if ($LASTEXITCODE) { throw 'Core test compilation failed' }
     & "$BuildRoot/core-test.exe"
@@ -80,10 +88,14 @@ try {
             if ($LASTEXITCODE) { throw "$test $mode tests failed" }
         }
     }
+    & $zigCommand c++ "$root/tests/desktop_modes_test.cpp" "$root/src/desktop_modes.cpp" @entryService -DFOLDERICON_MODE_TEST -std=c++17 -O2 -UNDEBUG -municode -o "$BuildRoot/desktop-modes-test.exe" @entryLibs
+    if ($LASTEXITCODE) { throw 'Desktop modes compilation failed' }
+    & "$BuildRoot/desktop-modes-test.exe" (Join-Path $BuildRoot ("modes-test-" + [guid]::NewGuid().ToString('N')))
+    if ($LASTEXITCODE) { throw 'Desktop modes tests failed' }
     if ($TestsOnly) { return }
     & $zigCommand rc /fo "$BuildRoot/app.res" "$root/src/app.rc"
     if ($LASTEXITCODE) { throw 'Icon resource compilation failed' }
-    & $zigCommand c++ "$BuildRoot/app.res" "$root/src/entry_maintenance.cpp" "$root/src/entry_actions.cpp" "$root/src/main.cpp" "$root/src/shell.cpp" "$root/src/config_store.cpp" "$root/src/panel.cpp" "$root/src/settings.cpp" "$root/src/icon_cache.cpp" "$root/src/folder_sort.cpp" "$root/src/folder_rules.cpp" "$root/src/sort_settings.cpp" "$root/src/folder_badge.cpp" "$root/src/context_menu.cpp" -std=c++17 -Os -s -municode '-Wl,--subsystem,windows' -o "$BuildRoot/FolderIconCN.exe" -luser32 -lshell32 -lgdi32 -lcomctl32 -lcomdlg32 -lole32 -loleaut32 -loleacc -luuid -ladvapi32 -ldwmapi -lshlwapi -lgdiplus -lbcrypt
+    & $zigCommand c++ "$BuildRoot/app.res" "$root/src/desktop_modes.cpp" "$root/src/desktop_mode_dialog.cpp" "$root/src/entry_manager.cpp" "$root/src/entry_maintenance.cpp" "$root/src/entry_actions.cpp" "$root/src/main.cpp" "$root/src/launch_placement.cpp" "$root/src/shell.cpp" "$root/src/config_store.cpp" "$root/src/panel.cpp" "$root/src/settings.cpp" "$root/src/icon_cache.cpp" "$root/src/folder_sort.cpp" "$root/src/folder_rules.cpp" "$root/src/sort_settings.cpp" "$root/src/folder_badge.cpp" "$root/src/context_menu.cpp" -std=c++17 -Os -s -municode '-Wl,--subsystem,windows' -o "$BuildRoot/FolderIconCN.exe" -luser32 -lshell32 -lgdi32 -lcomctl32 -lcomdlg32 -lole32 -loleaut32 -loleacc -luuid -ladvapi32 -ldwmapi -lshlwapi -lgdiplus -lbcrypt
     if ($LASTEXITCODE) { throw 'Application compilation failed' }
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
     Copy-Item -LiteralPath "$BuildRoot/FolderIconCN.exe" -Destination "$OutputDirectory/FolderIconCN.exe"

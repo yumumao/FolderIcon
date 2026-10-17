@@ -99,3 +99,9 @@
 # rc.2 release notes and reviewed synthetic confirmation only.
 !/docs/RELEASE-v2.0.0-rc.2.md
 !/docs/images/exit-confirmation.png
+
+# Desktop opening-mode user documentation.
+!/docs/DESKTOP-MODES.md
+
+# rc.3 release notes.
+!/docs/RELEASE-v2.0.0-rc.3.md

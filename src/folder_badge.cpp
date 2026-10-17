@@ -82,14 +82,14 @@ static HBITMAP resourceBitmap(const std::wstring& source,int index,int size){
   SelectObject(dc,old);if(!ok){DeleteObject(bm);bm=nullptr;}
  }DeleteDC(dc);DestroyIcon(icon);return bm;
 }
-static bool generate(const Location&l,bool shortcut=false,const std::wstring& resource=L"",int resourceIndex=0){
+static bool generate(const Location&l,bool shortcut=false,const std::wstring& resource=L"",int resourceIndex=0,bool direct=false,bool plain=false){
  const int sizes[]={16,20,24,32,40,48,64,96,128,256};std::vector<Bytes> frames;std::vector<IconEntry> entries;
  IShellItemImageFactory* factory=nullptr;if(resource.empty()&&FAILED(SHCreateItemFromParsingName(l.folder.c_str(),nullptr,IID_PPV_ARGS(&factory))))return false;
  bool ok=true;DWORD offset=sizeof(IconHeader)+sizeof(IconEntry)*10;
  for(int size:sizes){HBITMAP hb=nullptr;if(factory)factory->GetImage({size,size},(SIIGBF)(SIIGBF_ICONONLY|SIIGBF_BIGGERSIZEOK),&hb);else hb=resourceBitmap(resource,resourceIndex,size);if(!hb){ok=false;break;}
   BITMAP bm{};GetObjectW(hb,sizeof(bm),&bm);int w=bm.bmWidth,h=abs(bm.bmHeight);Bytes pixels((size_t)w*h*4);BITMAPINFO bi{};bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bi.bmiHeader.biWidth=w;bi.bmiHeader.biHeight=-h;bi.bmiHeader.biPlanes=1;bi.bmiHeader.biBitCount=32;HDC dc=GetDC(nullptr);int got=GetDIBits(dc,hb,0,h,pixels.data(),&bi,DIB_RGB_COLORS);ReleaseDC(nullptr,dc);DeleteObject(hb);if(got!=h){ok=false;break;}
   Gdiplus::Bitmap source(w,h,w*4,PixelFormat32bppPARGB,pixels.data()),canvas(size,size,PixelFormat32bppARGB);
-  {Gdiplus::Graphics g(&canvas);g.Clear(Gdiplus::Color(0,0,0,0));g.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);g.DrawImage(&source,0,0,size,size);g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);float d=(float)BadgeVisual::extent(size);BadgeVisual::draw(g,size-d,0,size,shortcut?BadgeVisual::Kind::Shortcut:BadgeVisual::Kind::DesktopFolder);}
+  {Gdiplus::Graphics g(&canvas);g.Clear(Gdiplus::Color(0,0,0,0));g.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);g.DrawImage(&source,0,0,size,size);g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);float d=(float)BadgeVisual::extent(size);if(!plain)BadgeVisual::draw(g,size-d,0,size,direct?BadgeVisual::Kind::DirectOpen:shortcut?BadgeVisual::Kind::Shortcut:BadgeVisual::Kind::DesktopFolder);}
 
   Gdiplus::BitmapData bd{};Gdiplus::Rect rect(0,0,size,size);if(canvas.LockBits(&rect,Gdiplus::ImageLockModeRead,PixelFormat32bppARGB,&bd)!=Gdiplus::Ok){ok=false;break;}
   DWORD maskStride=((size+31)/32)*4;Bytes frame(sizeof(BITMAPINFOHEADER)+size*size*4+maskStride*size,0);BITMAPINFOHEADER head{};head.biSize=sizeof(head);head.biWidth=size;head.biHeight=size*2;head.biPlanes=1;head.biBitCount=32;head.biSizeImage=size*size*4;memcpy(frame.data(),&head,sizeof(head));
@@ -97,6 +97,26 @@ static bool generate(const Location&l,bool shortcut=false,const std::wstring& re
   IconEntry ie{};ie.width=ie.height=(BYTE)size;ie.bytes=(DWORD)frame.size();ie.offset=offset;offset+=ie.bytes;entries.push_back(ie);frames.push_back(std::move(frame));
  }
  if(factory)factory->Release();if(!ok||frames.size()!=10)return false;IconHeader hdr;hdr.count=10;Bytes ico(offset);memcpy(ico.data(),&hdr,sizeof(hdr));memcpy(ico.data()+sizeof(hdr),entries.data(),entries.size()*sizeof(IconEntry));for(size_t i=0;i<frames.size();++i)memcpy(ico.data()+entries[i].offset,frames[i].data(),frames[i].size());return snapshot(l.icon,ico);
+}
+// Overlay directly on our saved ARGB frames: no Shell extraction or resampling.
+static bool badgeFromBase(const std::wstring&base,const std::wstring&destination,bool direct,bool shortcut=false){
+ Bytes ico;bool had=false;if(!read(base,ico,had)||!had||ico.size()<sizeof(IconHeader))return false;
+ IconHeader header{};memcpy(&header,ico.data(),sizeof(header));
+ if(header.reserved||header.type!=1||header.count!=10||ico.size()<sizeof(header)+10*sizeof(IconEntry))return false;
+ for(int i=0;i<10;++i){IconEntry entry{};memcpy(&entry,ico.data()+sizeof(header)+i*sizeof(entry),sizeof(entry));
+  int size=entry.width?entry.width:256;size_t bytes=size*size*4,offset=entry.offset;
+  if(entry.height!=entry.width||offset+sizeof(BITMAPINFOHEADER)+bytes>ico.size())return false;
+  BITMAPINFOHEADER head{};memcpy(&head,ico.data()+offset,sizeof(head));
+  if(head.biSize!=sizeof(head)||head.biWidth!=size||head.biHeight!=size*2||head.biBitCount!=32||head.biCompression!=BI_RGB)return false;
+  Bytes pixels(bytes);auto frame=ico.data()+offset+sizeof(head);
+  for(int y=0;y<size;++y)memcpy(pixels.data()+y*size*4,frame+(size-1-y)*size*4,size*4);
+  {Gdiplus::Bitmap canvas(size,size,size*4,PixelFormat32bppARGB,pixels.data());Gdiplus::Graphics g(&canvas);
+   g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);float d=(float)BadgeVisual::extent(size);
+   BadgeVisual::draw(g,size-d,0,size,direct?BadgeVisual::Kind::DirectOpen:shortcut?BadgeVisual::Kind::Shortcut:BadgeVisual::Kind::DesktopFolder);g.Flush(Gdiplus::FlushIntentionSync);}
+  size_t stride=((size+31)/32)*4;if(offset+sizeof(head)+bytes+stride*size>ico.size())return false;
+  for(int y=0;y<size;++y){auto row=pixels.data()+y*size*4;memcpy(frame+(size-1-y)*size*4,row,size*4);
+   auto mask=frame+bytes+(size-1-y)*stride;memset(mask,0,stride);for(int x=0;x<size;++x)if(!row[x*4+3])mask[x/8]|=(BYTE)(0x80>>(x%8));}
+ }return snapshot(destination,ico);
 }
 static bool writableMetadata(const Location&l,Bytes&b,bool&had,DWORD&attr,std::wstring&e){if(!read(l.ini,b,had,&attr))return fail(e,L"无法安全读取desktop.ini（可能是链接、被占用或格式过大）。");if(had&&(attr&FILE_ATTRIBUTE_READONLY))return fail(e,L"desktop.ini设为只读，未修改。请先确认该目录的原有保护设置。");return true;}
 static bool putTarget(const Location&l,const Bytes&expected,bool expectedHad,const Bytes&next,bool nextHad){Bytes current;bool had;DWORD attrs=0;if(!read(l.ini,current,had,&attrs)||had!=expectedHad||current!=expected||(had&&(attrs&FILE_ATTRIBUTE_READONLY)))return false;if(!nextHad)return !had||DeleteFileW(l.ini.c_str())!=FALSE;return replace(l.ini,next,had);}
@@ -136,18 +156,46 @@ static bool restoreImpl(const Location&l,std::wstring&e){
  if(!DeleteFileW(l.info.c_str()))return fail(e,L"图标已恢复，但无法完成恢复记录收尾。");notify(l);return true;
 }
 } // namespace
-bool apply(const std::wstring&store,const std::wstring&folder,std::wstring&e){
+static bool applyInternal(const std::wstring&store,const std::wstring&folder,bool direct,std::wstring&e){
  e.clear();Location l;Guard lock;if(!locate(store,folder,l,lock,e))return false;
  if(exists(l.info)){State s;Bytes original,applied,current;bool had;Doc now,ours;std::array<Value,3>a,b;if(!loadState(l,s,original,applied)||!read(l.ini,current,had)||!had||!decode(current,now)||!decode(applied,ours)||!values(now.text,a)||!values(ours.text,b)||!equalValues(a,b))return fail(e,L"已有角标恢复记录，但当前图标不同。请先恢复，避免覆盖你修改的新图标。");if(s.phase!=2)return fail(e,L"上次角标操作未完成，请先点击恢复原图标。");return true;}
  State s;s.folderAttrs=l.attrs;Bytes original;bool had;DWORD attr=0;if(!writableMetadata(l,original,had,attr,e))return false;s.hadIni=had;s.iniAttrs=attr;Doc doc;std::array<Value,3>v;if(!decode(original,doc)||!values(doc.text,v))return fail(e,L"desktop.ini编码不支持或图标键重复，未修改。");
  int created=SHCreateDirectoryExW(nullptr,l.dir.c_str(),nullptr);if(created!=ERROR_SUCCESS&&created!=ERROR_ALREADY_EXISTS)return fail(e,L"无法创建程序旁的角标备份目录。");
  Bytes pathBytes((BYTE*)l.folder.data(),(BYTE*)l.folder.data()+l.folder.size()*sizeof(wchar_t));if(!snapshot(l.dir+L"\\folder.path",pathBytes))return fail(e,L"无法保存目录定位记录，原目录未修改。");
- if(!generate(l))return fail(e,L"无法生成目录图标，原配置未修改。");setValue(doc.text,L"IconResource",{});setValue(doc.text,L"IconFile",{true,l.icon});setValue(doc.text,L"IconIndex",{true,L"0"});Bytes applied=encode(doc);
+ Location clean=l;clean.icon=l.dir+L"\\base.ico";
+ if(!generate(clean,false,L"",0,false,true)||!badgeFromBase(clean.icon,l.icon,direct))return fail(e,L"无法生成目录图标，原配置未修改。");setValue(doc.text,L"IconResource",{});setValue(doc.text,L"IconFile",{true,l.icon});setValue(doc.text,L"IconIndex",{true,L"0"});Bytes applied=encode(doc);
  if(!snapshot(l.original,original)||!snapshot(l.applied,applied)||!saveState(l,s))return fail(e,L"无法完整保存恢复记录，原目录配置未修改。");
  if(!putTarget(l,original,had,applied,true)){std::wstring ignored;restoreImpl(l,ignored);return fail(e,L"写入目录外观失败或配置被同时修改；未强行覆盖。");}
  bool attrsOk=SetFileAttributesW(l.ini.c_str(),(had?attr:FILE_ATTRIBUTE_NORMAL)|FILE_ATTRIBUTE_HIDDEN|FILE_ATTRIBUTE_SYSTEM)&&SetFileAttributesW(l.folder.c_str(),l.attrs|FILE_ATTRIBUTE_READONLY);s.phase=2;
  if(!attrsOk||!saveState(l,s)){std::wstring rollback;bool reverted=restoreImpl(l,rollback);e=reverted?L"设置角标未完成，已恢复原外观。":L"设置角标未完成，恢复记录已保留。请点击恢复原图标。";return false;}
  notify(l);return true;
+}
+bool apply(const std::wstring&store,const std::wstring&folder,std::wstring&e){return applyInternal(store,folder,false,e);}
+bool applyMode(const std::wstring&store,const std::wstring&folder,bool direct,std::wstring&e){
+ Location l;Guard guard;if(!locate(store,folder,l,guard,e))return false;
+ if(exists(l.info)){
+  State s;Bytes original,applied,current;bool had=false;
+  if(!loadState(l,s,original,applied)||s.phase!=2||!read(l.ini,current,had)||!had||current!=applied)return fail(e,L"目录图标已修改或恢复记录未完成，请先恢复原图标。");
+  auto clean=l.dir+L"\\base.ico";
+  if(!exists(clean)){
+   Doc doc;std::array<Value,3> valuesBefore;if(!decode(original,doc)||!values(doc.text,valuesBefore))return fail(e,L"原图标记录无法读取。");
+   std::wstring source;int index=0;
+   if(valuesBefore[0].present){source=valuesBefore[0].text;auto comma=source.find_last_of(L',');if(comma!=std::wstring::npos){index=_wtoi(source.substr(comma+1).c_str());source.resize(comma);}}
+   else if(valuesBefore[1].present){source=valuesBefore[1].text;if(valuesBefore[2].present)index=_wtoi(valuesBefore[2].text.c_str());}
+   if(source.size()>1&&source.front()==L'"'&&source.back()==L'"')source=source.substr(1,source.size()-2);
+   if(source.empty()){SHSTOCKICONINFO stock{sizeof(stock)};if(FAILED(SHGetStockIconInfo(SIID_FOLDER,SHGSI_ICONLOCATION,&stock)))return fail(e,L"无法读取原文件夹图标。");source=stock.szPath;index=stock.iIcon;}
+   else if(PathIsRelativeW(source.c_str()))source=l.folder+L"\\"+source;
+   Location base=l;base.icon=clean;if(!generate(base,false,source,index,false,true))return fail(e,L"无法生成原图标副本。");
+  }
+  if(!badgeFromBase(clean,l.icon,direct))return fail(e,L"无法切换角标。");notify(l);return true;
+ }
+ if(guard.held){ReleaseMutex(guard.h);guard.held=false;}
+ return applyInternal(store,folder,direct,e);
+}
+bool modeIcon(const std::wstring&path,const std::wstring&source,int index,const std::wstring&destination,bool direct,std::wstring&e){
+ e.clear();if(exists(destination))return fail(e,L"图标目标已存在。");Location l;l.folder=path;l.icon=destination;
+ if(index==0&&!source.empty()&&badgeFromBase(source,destination,direct,true))return true;
+ return generate(l,true,source,index,direct)||fail(e,L"无法读取原图标，未修改入口。");
 }
 bool shortcutIcon(const std::wstring&folder,const std::wstring&destination,std::wstring&e){
  e.clear();if(exists(destination))return fail(e,L"图标目标已存在，未覆盖。");Location l;l.folder=folder;l.icon=destination;

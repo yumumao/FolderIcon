@@ -2,17 +2,20 @@
 #include "desktop_scope.h"
 #include "context_menu.h"
 #include "folder_badge.h"
+#include "desktop_modes.h"
 namespace EntryActions {
 bool realFolder(const std::wstring& path){return DesktopScope::realFolder(path);}
 bool setPanelExpansion(const std::wstring& path,bool enabled,std::wstring& error){
+ DesktopModes::Guard modeGuard;if(!modeGuard.held){error=L"打开方式正在保存，请稍后重试。";return false;}loadConfig();
  error.clear();if(!realFolder(path)){error=L"目标不是真实文件夹或已不可访问。";return false;}
  auto before=folderRules;
  if(!FolderRules::set(folderRules,path,enabled,FolderRules::contains(folderRules,path,true))){error=L"无法记录这个文件夹。";return false;}
  if(!saveConfig(nullptr)){folderRules=std::move(before);error=configSaveError;return false;}return true;
 }
 bool enableDesktopFolder(const std::wstring& path,bool& alreadyEnabled,std::wstring& warning,std::wstring& error){
- alreadyEnabled=false;warning.clear();error.clear();if(!realFolder(path)){error=L"目标不是真实文件夹或已不可访问。";return false;}
+ DesktopModes::Guard modeGuard;if(!modeGuard.held){error=L"打开方式正在保存，请稍后重试。";return false;}loadConfig();alreadyEnabled=false;warning.clear();error.clear();if(!realFolder(path)){error=L"目标不是真实文件夹或已不可访问。";return false;}
  if(!DesktopScope::validate(path,cfg.desktopPath,error))return false;
+ if(DesktopModes::direct(path)){error=L"这个目录已设为单击直接打开，请从右键打开方式切换为面板。";return false;}
  auto normalized=FolderRules::normalize(path);
  alreadyEnabled=FolderRules::contains(folderRules,normalized,true);auto before=folderRules;bool panel=FolderRules::contains(folderRules,normalized,false);
  if(!FolderRules::set(folderRules,normalized,panel,true)){error=L"无法记录这个文件夹。";return false;}
@@ -27,12 +30,12 @@ bool enableDesktopFolder(const std::wstring& path,bool& alreadyEnabled,std::wstr
  return out;
 }
 std::wstring syncDesktopBadges(const FolderRules::Rules& before,const FolderRules::Rules& after){
- std::wstring failures;for(const auto&r:after)if(r.desktop&&!FolderRules::contains(before,r.path,true)){
+ DesktopModes::Guard modeGuard;if(!modeGuard.held)return L"打开方式正在保存，角标稍后重试。";DesktopModes::load();std::wstring failures;for(const auto&r:after)if(r.desktop&&!FolderRules::contains(before,r.path,true)&&!DesktopModes::direct(r.path)){
   std::wstring error;if(!FolderBadge::apply(baseDir+L"\\folder-badges",r.path,error))failures+=r.path+L"\n"+error+L"\n\n";
  }
  // A panel-only rule draws a transient badge in our panel, not on the real directory.
  // Only committed desktop-role changes reach this function; cancelling a draft is inert.
- for(const auto&r:before)if(r.desktop&&!FolderRules::contains(after,r.path,true)){
+ for(const auto&r:before)if(r.desktop&&!FolderRules::contains(after,r.path,true)&&!DesktopModes::direct(r.path)){
   std::wstring error;if(!FolderBadge::restore(baseDir+L"\\folder-badges",r.path,error))failures+=r.path+L"\n"+error+L"\n\n";
  }return failures;
 }
@@ -43,6 +46,7 @@ static bool hasCustomTarget(const std::wstring& path){
  return false;
 }
 bool createDesktopEntry(const std::wstring& folder,const std::wstring& desktop,std::wstring& shortcut,std::wstring& error){
+ DesktopModes::Guard modeGuard;if(!modeGuard.held){error=L"打开方式正在保存，请稍后重试。";return false;}loadConfig();
  error.clear();shortcut.clear();auto path=FolderRules::normalize(folder);
  DWORD attr=GetFileAttributesW(path.c_str()),da=GetFileAttributesW(desktop.c_str());
  if(attr==INVALID_FILE_ATTRIBUTES||!(attr&FILE_ATTRIBUTE_DIRECTORY))return fail(error,L"请选择可访问的文件夹。");
@@ -106,12 +110,17 @@ static bool removeGeneratedIcon(const Entry& entry,std::wstring& warning){
 }
 bool removeDesktopEntry(size_t index,std::wstring& warning,std::wstring& error){
  warning.clear();error.clear();if(index<3||index>=entries.size()){error=L"只能删除已生成的桌面展开快捷方式，不能删除内置入口。";return false;}
+ auto selectedId=entries[index].id;DesktopModes::Guard modeGuard;if(!modeGuard.held){error=L"打开方式正在保存，请稍后重试。";return false;}loadConfig();index=entries.size();for(size_t i=3;i<entries.size();++i)if(entries[i].id==selectedId){index=i;break;}if(index==entries.size()){error=L"入口已经由另一个窗口移除，请刷新后重试。";return false;}
+ if(!DesktopModes::validStore){error=L"打开方式记录不可读，未删除入口。";return false;}
+ for(const auto&r:DesktopModes::records)if(!r.folder){IShellLinkW*l=nullptr;IPersistFile*f=nullptr;bool match=false;
+  if(SUCCEEDED(CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&l)))&&SUCCEEDED(l->QueryInterface(IID_PPV_ARGS(&f)))&&SUCCEEDED(f->Load(r.path.c_str(),STGM_READ))){wchar_t target[32768]{},args[32768]{};l->GetPath(target,32768,nullptr,SLGP_RAWPATH);l->GetArguments(args,32768);match=samePath(target,exePath)&&std::wstring(args)==L"--entry "+entries[index].id;}
+  if(f)f->Release();if(l)l->Release();if(match){error=L"此入口已单独设置打开方式，请先在该图标的右键菜单恢复默认，再删除展开入口。";return false;}}
  Entry removed=entries[index];auto before=entries;entries.erase(entries.begin()+index);
  if(!saveConfig(nullptr)){entries=std::move(before);error=configSaveError;return false;}
  removeGeneratedShortcut(removed,warning);removeGeneratedIcon(removed,warning);
  // Older candidates could leave a static badge on a shortcut source. Only the
  // last committed reference may restore it; a live desktop role still owns it.
- if(!hasCustomTarget(removed.target)&&!FolderRules::contains(folderRules,removed.target,true)){
+ if(!DesktopModes::direct(removed.target)&&!hasCustomTarget(removed.target)&&!FolderRules::contains(folderRules,removed.target,true)){
   std::wstring badgeError;
   if(!FolderBadge::restore(baseDir+L"\\folder-badges",removed.target,badgeError))
    warning+=L"源文件夹的历史角标未能恢复："+removed.target+L"\n"+badgeError+L"\n可在设置中使用恢复原图标重试。\n";

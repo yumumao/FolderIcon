@@ -36,11 +36,11 @@ static void verifyGrid(){
 }
 int wmain(int argc,wchar_t**argv){if(argc!=2)return 2;CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);ULONG_PTR token;Gdiplus::GdiplusStartupInput startup;Gdiplus::GdiplusStartup(&token,&startup,nullptr);
  verifyGrid(); std::wstring root=argv[1],folder=root+L"\\plain",blue=root+L"\\shortcut.ico",error;CreateDirectoryW(root.c_str(),nullptr);CreateDirectoryW(folder.c_str(),nullptr);
- check(FolderBadge::shortcutIcon(folder,blue,error),"blue icon generated");check(FolderBadge::apply(root+L"\\store",folder,error),"orange icon generated");wchar_t path[32768]{};GetPrivateProfileStringW(L".ShellClassInfo",L"IconFile",L"",path,32768,(folder+L"\\desktop.ini").c_str());auto a=read(blue),b=read(path);check(a[4]==10&&b[4]==10,"ten DPI frames");
- for(int f=0;f<10;++f){int size=a[6+16*f]?a[6+16*f]:256;size_t xoff=u32(a,6+16*f+12)+40,yoff=u32(b,6+16*f+12)+40;int d=std::max(8,size*32/100),geometry=0,outside=0,colors=0;
-  for(int y=0;y<size;++y)for(int x=0;x<size;++x){size_t p=((size-1-y)*size+x)*4;bool badge=x>=size-d&&y<d;if(!badge){if(memcmp(a.data()+xoff+p,b.data()+yoff+p,4))++outside;}else{if(abs((int)a[xoff+p+3]-(int)b[yoff+p+3])>2)++geometry;if(a[xoff+p+3]>240&&b[yoff+p+3]>240&&abs((int)a[xoff+p]-(int)b[yoff+p])>30)++colors;}}
+ check(FolderBadge::shortcutIcon(folder,blue,error),"blue icon generated");check(FolderBadge::apply(root+L"\\store",folder,error),"orange icon generated");wchar_t path[32768]{};GetPrivateProfileStringW(L".ShellClassInfo",L"IconFile",L"",path,32768,(folder+L"\\desktop.ini").c_str());auto a=read(blue),b=read(path);auto direct=root+L"\\direct.ico";check(FolderBadge::modeIcon(folder,blue,0,direct,true,error),"direct generated from existing shortcut icon");auto directPixels=read(direct);check(a[4]==10&&b[4]==10,"ten DPI frames");
+ for(int f=0;f<10;++f){int size=a[6+16*f]?a[6+16*f]:256;size_t xoff=u32(a,6+16*f+12)+40,yoff=u32(b,6+16*f+12)+40;size_t directOff=u32(directPixels,6+16*f+12)+40;int d=std::max(8,size*32/100),geometry=0,outside=0,directOutside=0,colors=0;
+  for(int y=0;y<size;++y)for(int x=0;x<size;++x){size_t p=((size-1-y)*size+x)*4;bool badge=x>=size-d&&y<d;if(!badge){if(memcmp(a.data()+xoff+p,directPixels.data()+directOff+p,4))++directOutside;if(memcmp(a.data()+xoff+p,b.data()+yoff+p,4))++outside;}else{if(abs((int)a[xoff+p+3]-(int)b[yoff+p+3])>2)++geometry;if(a[xoff+p+3]>240&&b[yoff+p+3]>240&&abs((int)a[xoff+p]-(int)b[yoff+p])>30)++colors;}}
   printf("frame %d: silhouette differences=%d outside=%d color differences=%d\n",size,geometry,outside,colors);
-  check(geometry==0,"same badge silhouette at every DPI");check(outside==0,"same underlying icon outside badge");check(colors>0,"types retain distinct colors");
+  check(geometry==0,"same badge silhouette at every DPI");check(outside==0,"same underlying icon outside badge");check(directOutside==0,"direct shortcut preserves underlying icon pixels");check(colors>0,"types retain distinct colors");
  }
  check(FolderBadge::restore(root+L"\\store",folder,error),"restorable after style change");Gdiplus::GdiplusShutdown(token);CoUninitialize();printf("PASS %d badge style checks\n",count);return 0;
 }

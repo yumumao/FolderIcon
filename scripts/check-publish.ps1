@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -24,9 +24,13 @@ try {
         'src/panel_interaction.h', 'tests/panel_interaction_test.cpp',
         'src/context_menu.h', 'src/context_menu.cpp', 'tests/context_menu_test.cpp',
         'src/desktop_scope.h', 'tests/desktop_scope_test.cpp', 'tests/badge_removal_test.cpp',
+        'src/desktop_modes.h', 'src/desktop_modes.cpp', 'src/desktop_mode_dialog.cpp',
+        'src/direct_click.h', 'tests/desktop_modes_test.cpp', 'docs/DESKTOP-MODES.md',
+        'src/entry_manager.h', 'src/entry_manager.cpp', 'src/fast_direct_click.h', 'tests/fast_direct_click_test.cpp',
+        'src/launch_geometry.h', 'src/launch_placement.h', 'src/launch_placement.cpp', 'tests/launch_geometry_test.cpp',
         'src/entry_maintenance.h', 'src/entry_maintenance.cpp', 'tests/entry_maintenance_test.cpp',
         'scripts/build.ps1', 'scripts/check-publish.ps1', 'scripts/package-release.ps1',
-        'docs/RELEASE-v2.0.0-rc.1.md', 'docs/RELEASE-v2.0.0-rc.2.md',
+        'docs/RELEASE-v2.0.0-rc.1.md', 'docs/RELEASE-v2.0.0-rc.2.md', 'docs/RELEASE-v2.0.0-rc.3.md',
         'docs/images/panel.png', 'docs/images/subfolder.png',
         'docs/images/settings-appearance.png', 'docs/images/settings-entries.png', 'docs/images/real-desktop-orange.png', 'docs/images/real-shortcut-blue.png', 'docs/images/hero-click-expand.png', 'docs/images/exit-confirmation.png',
         'config/FolderIcon.example.ini', 'docs/PRIVACY.md',

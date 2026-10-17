@@ -1,4 +1,5 @@
 #include "app.h"
+#include "desktop_modes.h"
 #include <cstdio>
 #include <set>
 std::wstring configSaveError;
@@ -43,6 +44,7 @@ for(int i=currentCount;i<previousCount;++i)WritePrivateProfileStringW(L"CustomEn
  WritePrivateProfileStringW(nullptr,nullptr,nullptr,file.c_str());return ok;
 }
 bool saveConfig(const wchar_t* runSubkey){
+ DesktopModes::Guard modeGuard;if(!modeGuard.held){configSaveError=L"打开方式正在保存，请稍后重试。";return false;}
  configSaveError=L"配置无法写入，请检查目录权限。";
  const auto temp=iniPath+L".pending."+std::to_wstring(GetCurrentProcessId())+L"."+std::to_wstring(GetTickCount64());
  HANDLE f=CreateFileW(temp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);

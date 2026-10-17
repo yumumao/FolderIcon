@@ -3,7 +3,28 @@
 #include "entry_actions.h"
 #include "entry_maintenance.h"
 #include "desktop_scope.h"
+#include "desktop_modes.h"
+#include "direct_click.h"
+#include "fast_direct_click.h"
+#include "launch_placement.h"
 HWND controller=nullptr;bool residentMode=false,quitting=false;static HHOOK mouseHook=nullptr;static HANDLE singleton=nullptr;static NOTIFYICONDATAW tray={};static ClickState clicks,folderClicks;static int lastOpen=-1;static POINT downPoint{};static ULONGLONG openedAt=0;static UINT taskbarMessage;static bool hookDown=false,hookDragged=false;static POINT hookPoint{};static std::wstring folderLastPath,pendingFolderPath;static POINT pendingFolderPoint{};static bool pendingFolder=false;
+static bool swallowSecondUp=false;
+static constexpr UINT WM_DIRECT_ERROR=WM_APP+8;
+struct DirectLaunch {std::wstring path;bool directory;HWND owner;POINT anchor;};
+static DWORD WINAPI runDirectLaunch(void*raw){
+ std::unique_ptr<DirectLaunch> job((DirectLaunch*)raw);HRESULT com=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
+ bool ok=LaunchPlacement::open(job->path,job->directory,job->anchor,[&](HMONITOR monitor,HANDLE* process){return openShellPath(nullptr,job->path,job->directory,true,monitor,process);});if(SUCCEEDED(com))CoUninitialize();
+ if(!ok)PostMessageW(job->owner,WM_DIRECT_ERROR,0,0);return 0;
+}
+static void launchDirect(const DesktopHit&hit,POINT anchor){
+ auto*job=new DirectLaunch{hit.modeTarget,hit.openDirectory,controller,anchor};HANDLE thread=CreateThread(nullptr,0,runDirectLaunch,job,0,nullptr);
+ if(thread)CloseHandle(thread);else{delete job;PostMessageW(controller,WM_DIRECT_ERROR,0,0);}
+}
+static FastDirectClick fastClicks;
+static FastDirectClick::Token hookGesture;
+struct HookInput {unsigned kind;DWORD time;POINT pt;FastDirectClick::Token gesture;};
+static DirectClick modeClicks;static DesktopHit pendingMode;static constexpr UINT TIMER_MODE=37;
+static void resetMode(){modeClicks.reset();pendingMode={};if(controller)KillTimer(controller,TIMER_MODE);}
 static void resetFolderState(){folderClicks.reset();folderLastPath.clear();pendingFolder=false;pendingFolderPath.clear();}
 static std::wstring chooseContextAction(bool direct,const std::wstring& folder){
  if(!direct){
@@ -21,6 +42,7 @@ static void notifyConfigChanged(){
  if(settings)PostMessageW(settings,WM_CONFIG,0,0);
 }
 static int handleContextFolder(const std::wstring& requestedAction,const std::wstring& argument){
+ if(requestedAction==L"choose"){auto info=DesktopModes::inspect(argument);if(info.supported){DesktopModes::showDialog(nullptr,argument);return 0;}}
  if(!EntryActions::realFolder(argument)){MessageBoxW(nullptr,L"目标不是真实文件夹或已不可访问。",L"FolderIcon",MB_OK|MB_ICONERROR);return 2;}
  std::wstring desktopPath,desktopError;if(!DesktopScope::resolve(cfg.desktopPath,desktopPath,desktopError)){MessageBoxW(nullptr,desktopError.c_str(),L"FolderIcon",MB_OK|MB_ICONERROR);return 2;}
  auto folder=FolderRules::normalize(argument);
@@ -45,20 +67,45 @@ static int handleContextFolder(const std::wstring& requestedAction,const std::ws
  }
  MessageBoxW(nullptr,L"无法识别右键操作。请重新打开设置并保存右键菜单。",L"FolderIcon",MB_OK|MB_ICONERROR);return 2;
 }static void dispatchOpen(int id){KillTimer(controller,TIMER_CLICK);clicks.reset();resetFolderState();ULONGLONG now=GetTickCount64();if(id==lastOpen&&now-openedAt<1200)return;lastOpen=id;openedAt=now;if(panelWindow)closePanel();openEntry(id);}
-static LRESULT CALLBACK hook(int code,WPARAM w,LPARAM l){if(code==HC_ACTION){auto p=(MSLLHOOKSTRUCT*)l;if(w==WM_LBUTTONDOWN){bool modifiers=(GetAsyncKeyState(VK_CONTROL)&0x8000)||(GetAsyncKeyState(VK_SHIFT)&0x8000);hookDown=!modifiers&&isDesktopPoint(p->pt);hookDragged=false;hookPoint=p->pt;if(hookDown)PostMessageW(controller,WM_HOOK,1,MAKELPARAM((short)p->pt.x,(short)p->pt.y));else PostMessageW(controller,WM_HOOK,3,0);}else if(w==WM_MOUSEMOVE&&hookDown){if(abs(p->pt.x-hookPoint.x)>GetSystemMetrics(SM_CXDRAG)||abs(p->pt.y-hookPoint.y)>GetSystemMetrics(SM_CYDRAG))hookDragged=true;}else if(w==WM_LBUTTONUP&&hookDown){hookDown=false;PostMessageW(controller,WM_HOOK,hookDragged?3:2,MAKELPARAM((short)p->pt.x,(short)p->pt.y));}}return CallNextHookEx(mouseHook,code,w,l);}
+static LRESULT CALLBACK hook(int code,WPARAM w,LPARAM l){
+ if(code==HC_ACTION){
+  auto*p=(MSLLHOOKSTRUCT*)l;
+  if(w==WM_LBUTTONUP&&swallowSecondUp){swallowSecondUp=false;hookDown=false;return 1;}
+  auto post=[&](unsigned kind){auto*event=new HookInput{kind,p->time,p->pt,hookGesture};if(!PostMessageW(controller,WM_HOOK,0,(LPARAM)event))delete event;};
+  if(w==WM_RBUTTONDOWN||w==WM_MBUTTONDOWN||w==WM_MOUSEWHEEL){fastClicks.reset();fastClicks.cancel(hookGesture);post(3);}
+  if(w==WM_LBUTTONDOWN){
+   bool modifiers=(GetAsyncKeyState(VK_CONTROL)&0x8000)||(GetAsyncKeyState(VK_SHIFT)&0x8000);
+   HWND target=WindowFromPoint(p->pt);bool desktop=isDesktopPoint(p->pt);
+   auto decision=fastClicks.press((uintptr_t)target,!modifiers&&desktop,p->pt.x,p->pt.y,p->time,GetDoubleClickTime(),GetSystemMetrics(SM_CXDOUBLECLK),GetSystemMetrics(SM_CYDOUBLECLK));
+   hookGesture=decision.gesture;hookDown=!modifiers&&desktop;hookDragged=false;hookPoint=p->pt;
+   if(decision.convert){
+    // Direct items have no double-click action. Consume the complete duplicate
+    // press/release pair; normal press-and-drag and modified selection pass on.
+    swallowSecondUp=true;hookDown=false;return 1;
+   }
+   post(hookDown?1:3);
+  }else if(w==WM_MOUSEMOVE&&hookDown){
+   if(abs(p->pt.x-hookPoint.x)>GetSystemMetrics(SM_CXDRAG)||abs(p->pt.y-hookPoint.y)>GetSystemMetrics(SM_CYDRAG)){hookDragged=true;fastClicks.cancel(hookGesture);}
+  }else if(w==WM_LBUTTONUP&&hookDown){hookDown=false;post(hookDragged?3:2);}
+ }
+ return CallNextHookEx(mouseHook,code,w,l);
+}
 static void addTray(){tray={};tray.cbSize=sizeof(tray);tray.hWnd=controller;tray.uID=1;tray.uFlags=NIF_MESSAGE|NIF_ICON|NIF_TIP;tray.uCallbackMessage=WM_TRAY;tray.hIcon=applicationIcon(GetSystemMetrics(SM_CXSMICON));wcscpy_s(tray.szTip,L"文件夹面板 · 后台运行中");Shell_NotifyIconW(NIM_ADD,&tray);}
 static LRESULT CALLBACK proc(HWND h,UINT m,WPARAM w,LPARAM l){if(m==taskbarMessage){addTray();return 0;}switch(m){case WM_HOOK:{
- POINT pt{GET_X_LPARAM(l),GET_Y_LPARAM(l)};
- if(w==1){KillTimer(h,TIMER_CLICK);pendingFolder=false;pendingFolderPath.clear();downPoint=pt;}
- else if(w==3){KillTimer(h,TIMER_CLICK);clicks.reset();resetFolderState();}
+ std::unique_ptr<HookInput> event((HookInput*)l);if(!event)return 0;const DWORD inputTime=event->time;w=event->kind;POINT pt=event->pt;
+ if(w==1){KillTimer(h,TIMER_MODE);KillTimer(h,TIMER_CLICK);pendingFolder=false;pendingFolderPath.clear();downPoint=pt;modeClicks.begin(pt.x,pt.y,inputTime);}
+ else if(w==3){resetMode();KillTimer(h,TIMER_CLICK);clicks.reset();resetFolderState();}
  else if(w==2){
   KillTimer(h,TIMER_CLICK);
   if(!isDesktopPoint(pt)||abs(pt.x-downPoint.x)>GetSystemMetrics(SM_CXDRAG)||abs(pt.y-downPoint.y)>GetSystemMetrics(SM_CYDRAG)){
-   clicks.reset();resetFolderState();return 0;
+   clicks.reset();resetFolderState();resetMode();return 0;
   }
+  if((GetAsyncKeyState(VK_CONTROL)&0x8000)||(GetAsyncKeyState(VK_SHIFT)&0x8000)){resetMode();clicks.reset();resetFolderState();return 0;}
   auto hit=desktopHitAt(pt);
-  if(!hit.managed){clicks.reset();resetFolderState();return 0;}
+  if(!hit.managed){resetMode();clicks.reset();resetFolderState();return 0;}
   const auto now=GetTickCount64();
+  if(hit.modeOverride){if(pt.x!=downPoint.x||pt.y!=downPoint.y){auto downHit=desktopHitAt(downPoint);if(!downHit.managed||downHit.path!=hit.path){resetMode();return 0;}}clicks.reset();resetFolderState();SHELLFLAGSTATE flags{};SHGetSettings(&flags,SSF_DOUBLECLICKINWEBVIEW);if(hit.direct&&!flags.fDoubleClickInWebView){resetMode();return 0;}if(hit.direct){resetMode();if(fastClicks.claim(event->gesture)){if(panelWindow)closePanel();launchDirect(hit,pt);}return 0;}auto action=modeClicks.finish(hit.path,pt.x,pt.y,now,GetDoubleClickTime(),GetSystemMetrics(SM_CXDOUBLECLK),GetSystemMetrics(SM_CYDOUBLECLK));if(action==DirectClick::Result::NativeDouble){resetMode();if(panelWindow)closePanel();return 0;}pendingMode=hit;SetTimer(h,TIMER_MODE,GetDoubleClickTime()+20,nullptr);return 0;}
+  resetMode();
   if(hit.realFolder){
    clicks.reset();
    if(_wcsicmp(folderLastPath.c_str(),hit.path.c_str())){resetFolderState();folderLastPath=hit.path;}
@@ -80,7 +127,7 @@ static LRESULT CALLBACK proc(HWND h,UINT m,WPARAM w,LPARAM l){if(m==taskbarMessa
  }
  return 0;
 }
-case WM_TIMER:if(w==31){if(EntryMaintenance::tick()){clicks.reset();resetFolderState();lastOpen=-1;HWND settings=FindWindowW(L"FolderIconCN.Settings",nullptr);if(settings)PostMessageW(settings,WM_CONFIG,0,0);}return 0;}if(w==TIMER_CLICK){KillTimer(h,TIMER_CLICK);if(pendingFolder){if(folderClicks.previewDue(GetTickCount64(),previewDelay(cfg.expandDelay,GetDoubleClickTime()))){folderClicks.markPreview();pendingFolder=false;showPanel(pendingFolderPath,pendingFolderPoint,true);}else SetTimer(h,TIMER_CLICK,10,nullptr);}else{int id=clicks.lastId;POINT pt{clicks.x,clicks.y};if(id>=0&&id<(int)entries.size()&&!clicks.previewed){if(clicks.previewDue(GetTickCount64(),previewDelay(cfg.expandDelay,GetDoubleClickTime()))){clicks.markPreview();showPanel(entries[id].target,pt,true);}else SetTimer(h,TIMER_CLICK,10,nullptr);}}}return 0;case WM_LAUNCH:dispatchOpen((int)w);return 0;case WM_CONFIG:{loadConfig();return 0;}case WM_TRAY:if(l==WM_LBUTTONDBLCLK){showSettings();return 0;}if(l==WM_RBUTTONUP||l==WM_CONTEXTMENU){HMENU menu=CreatePopupMenu();AppendMenuW(menu,MF_STRING,1,L"设置…");AppendMenuW(menu,MF_SEPARATOR,0,nullptr);AppendMenuW(menu,MF_STRING,3,L"退出后台（本次）");POINT p;GetCursorPos(&p);SetForegroundWindow(h);int id=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY,p.x,p.y,0,h,nullptr);DestroyMenu(menu);PostMessageW(h,WM_NULL,0,0);if(id==1)showSettings();if(id==3&&confirmStopBackground(h))PostMessageW(h,WM_CLOSE,0,0);}return 0;case WM_CLOSE:quitting=true;KillTimer(h,TIMER_CLICK);if(mouseHook){UnhookWindowsHookEx(mouseHook);mouseHook=nullptr;}Shell_NotifyIconW(NIM_DELETE,&tray);closePanel();if(settingsWindow)DestroyWindow(settingsWindow);DestroyWindow(h);return 0;case WM_DESTROY:PostQuitMessage(0);return 0;}return DefWindowProcW(h,m,w,l);}
+case WM_TIMER:if(w==TIMER_MODE){if(!modeClicks.due(GetTickCount64()))return 0;KillTimer(h,TIMER_MODE);if(modeClicks.due(GetTickCount64())){auto hit=pendingMode;POINT point{modeClicks.x,modeClicks.y};resetMode();if((GetAsyncKeyState(VK_LBUTTON)&0x8000)||(GetAsyncKeyState(VK_CONTROL)&0x8000)||(GetAsyncKeyState(VK_SHIFT)&0x8000))return 0;auto current=desktopHitAt(point);if(!current.managed||!current.modeOverride||current.path!=hit.path||current.direct!=hit.direct)return 0;if(hit.direct){if(!openShellPath(nullptr,hit.modeTarget,hit.openDirectory))MessageBoxW(nullptr,L"无法打开这个项目，请检查快捷方式或文件夹是否仍然有效。",L"FolderIcon",MB_OK|MB_ICONWARNING);}else showPanel(hit.modeTarget,point,true);}return 0;}if(w==31){if(EntryMaintenance::tick()){clicks.reset();resetFolderState();lastOpen=-1;HWND settings=FindWindowW(L"FolderIconCN.Settings",nullptr);if(settings)PostMessageW(settings,WM_CONFIG,0,0);}return 0;}if(w==TIMER_CLICK){KillTimer(h,TIMER_CLICK);if(pendingFolder){if(folderClicks.previewDue(GetTickCount64(),previewDelay(cfg.expandDelay,GetDoubleClickTime()))){folderClicks.markPreview();pendingFolder=false;showPanel(pendingFolderPath,pendingFolderPoint,true);}else SetTimer(h,TIMER_CLICK,10,nullptr);}else{int id=clicks.lastId;POINT pt{clicks.x,clicks.y};if(id>=0&&id<(int)entries.size()&&!clicks.previewed){if(clicks.previewDue(GetTickCount64(),previewDelay(cfg.expandDelay,GetDoubleClickTime()))){clicks.markPreview();showPanel(entries[id].target,pt,true);}else SetTimer(h,TIMER_CLICK,10,nullptr);}}}return 0;case WM_DIRECT_ERROR:MessageBoxW(h,L"无法打开这个项目，请检查快捷方式或文件夹是否仍然有效。",L"FolderIcon",MB_OK|MB_ICONWARNING);return 0;case WM_LAUNCH:dispatchOpen((int)w);return 0;case WM_CONFIG:{fastClicks.reset();resetMode();clicks.reset();resetFolderState();KillTimer(h,TIMER_CLICK);loadConfig();return 0;}case WM_TRAY:if(l==WM_LBUTTONDBLCLK){showSettings();return 0;}if(l==WM_RBUTTONUP||l==WM_CONTEXTMENU){HMENU menu=CreatePopupMenu();AppendMenuW(menu,MF_STRING,1,L"设置…");AppendMenuW(menu,MF_SEPARATOR,0,nullptr);AppendMenuW(menu,MF_STRING,3,L"退出后台（本次）");POINT p;GetCursorPos(&p);SetForegroundWindow(h);int id=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY,p.x,p.y,0,h,nullptr);DestroyMenu(menu);PostMessageW(h,WM_NULL,0,0);if(id==1)showSettings();if(id==3&&confirmStopBackground(h))PostMessageW(h,WM_CLOSE,0,0);}return 0;case WM_CLOSE:quitting=true;KillTimer(h,TIMER_CLICK);if(mouseHook){UnhookWindowsHookEx(mouseHook);mouseHook=nullptr;}Shell_NotifyIconW(NIM_DELETE,&tray);closePanel();if(settingsWindow)DestroyWindow(settingsWindow);DestroyWindow(h);return 0;case WM_DESTROY:PostQuitMessage(0);return 0;}return DefWindowProcW(h,m,w,l);}
 int WINAPI wWinMain(HINSTANCE h,HINSTANCE,LPWSTR,int){instance=h;using DpiFn=BOOL(WINAPI*)(HANDLE);auto dpi=(DpiFn)GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetProcessDpiAwarenessContext");if(dpi)dpi((HANDLE)-4);CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);ULONG_PTR gdip;Gdiplus::GdiplusStartupInput gi;Gdiplus::GdiplusStartup(&gdip,&gi,nullptr);wchar_t path[32768];GetModuleFileNameW(nullptr,path,32768);exePath=path;PathRemoveFileSpecW(path);baseDir=path;iniPath=baseDir+L"\\FolderIcon.ini";int argc;auto argv=CommandLineToArgvW(GetCommandLineW(),&argc);std::wstring command=argc>1?argv[1]:L"--settings",argument=argc>2?argv[2]:L"";loadConfig();int result=0;
  if(command==L"--diagnose"){diagnose(argument);goto done;}
  if(command==L"--stop"){if(HWND h=FindWindowW(CONTROL_CLASS,nullptr))PostMessageW(h,WM_CLOSE,0,0);goto done;}

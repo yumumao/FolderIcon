@@ -8,6 +8,7 @@
 #include <shlobj.h>
 namespace {
 constexpr wchar_t kMenuKey[]=L"Software\\Classes\\Directory\\shell\\FolderIconCN";
+constexpr wchar_t kLinkKey[]=L"Software\\Classes\\lnkfile\\shell\\FolderIconCN";
 constexpr wchar_t kLegacyKey[]=L"Software\\Classes\\Directory\\shell\\AddAsFolderIcon";
 std::wstring normalize(std::wstring path){
  if(path.rfind(L"\\\\?\\",0)==0)path=path.substr(4);
@@ -34,17 +35,19 @@ bool isDirectDesktopChild(const std::wstring& folder,const std::wstring& desktop
 }
 bool sync(bool enabled,const std::wstring& executable,std::wstring& error){
  error.clear();
+ for(const wchar_t* currentKey:{kMenuKey,kLinkKey}){
  if(enabled){
-  std::wstring ignored;if(!removeTree(kMenuKey,ignored)){error=ignored;return false;}
-  HKEY menu=nullptr;LONG e=RegCreateKeyExW(HKEY_CURRENT_USER,kMenuKey,0,nullptr,0,KEY_SET_VALUE|KEY_CREATE_SUB_KEY,nullptr,&menu,nullptr);
+  std::wstring ignored;if(!removeTree(currentKey,ignored)){error=ignored;return false;}
+  HKEY menu=nullptr;LONG e=RegCreateKeyExW(HKEY_CURRENT_USER,currentKey,0,nullptr,0,KEY_SET_VALUE|KEY_CREATE_SUB_KEY,nullptr,&menu,nullptr);
   if(e!=ERROR_SUCCESS){error=L"无法添加文件夹右键菜单，请检查当前用户注册表权限。";return false;}
-  bool ok=setValue(menu,L"MUIVerb",L"添加到FolderIcon面板")&&setValue(menu,L"Icon",executable)&&writeCommand(menu,executable);
+  bool ok=setValue(menu,L"MUIVerb",L"FolderIcon打开方式…")&&setValue(menu,L"Icon",executable)&&writeCommand(menu,executable);
   RegCloseKey(menu);
-  if(!ok){std::wstring ignored2;removeTree(kMenuKey,ignored2);error=L"无法写入文件夹右键菜单，设置未完成。";return false;}
- }else if(!removeTree(kMenuKey,error))return false;
+  if(!ok){std::wstring ignored2;removeTree(currentKey,ignored2);error=L"无法写入文件夹右键菜单，设置未完成。";return false;}
+ }else if(!removeTree(currentKey,error))return false;
+ }
  // Remove only the original FolderIcon legacy key created by main.c; do not scan or touch other applications.
  if(!removeTree(kLegacyKey,error)){
-  if(enabled){std::wstring ignored;removeTree(kMenuKey,ignored);}
+  if(enabled){std::wstring ignored;removeTree(kMenuKey,ignored);removeTree(kLinkKey,ignored);}
   return false;
  }
  SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST|SHCNF_FLUSHNOWAIT,nullptr,nullptr);return true;

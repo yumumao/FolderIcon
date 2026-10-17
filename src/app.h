@@ -28,8 +28,8 @@ extern Config cfg;extern std::vector<Entry> entries;extern std::wstring baseDir,
 constexpr UINT WM_TRAY=WM_APP+1,WM_HOOK=WM_APP+2,WM_CONFIG=WM_APP+3,WM_LAUNCH=WM_APP+4;
 constexpr UINT TIMER_CLICK=11;constexpr wchar_t CONTROL_CLASS[]=L"FolderIconCN.Controller";
 extern FolderRules::Rules folderRules;extern std::wstring folderRulesPath;
-struct DesktopHit{bool managed=false;bool realFolder=false;int entryId=-1;std::wstring path;};
+struct DesktopHit{bool direct=false,modeOverride=false,openDirectory=false;std::wstring modeTarget;bool managed=false;bool realFolder=false;int entryId=-1;std::wstring path;};
 void loadConfig();bool saveConfig(const wchar_t* runSubkey=L"Software\\Microsoft\\Windows\\CurrentVersion\\Run");void loadFolderRules();extern std::wstring configSaveError;void ensureSettingsFocusVisible();Metrics desktopMetrics(bool* actual=nullptr);DesktopHit desktopHitAt(POINT pt);int desktopEntryAt(POINT pt);HBITMAP shellBitmap(const std::wstring& path,int size);void openEntry(int id);void showPanel(const std::wstring& path,POINT anchor,bool preview=false);void closePanel();void showSettings();
 bool confirmStopBackground(HWND owner);void launchSelf(const std::wstring& args);bool applyStartup(bool enabled);void setupEntries();bool isDesktopPoint(POINT pt);void diagnose(const std::wstring& file);
 
-bool openShellPath(HWND parent,const std::wstring& path,bool directory);
+bool openShellPath(HWND parent,const std::wstring& path,bool directory,bool waitForDispatch=false,HMONITOR monitor=nullptr,HANDLE* process=nullptr);

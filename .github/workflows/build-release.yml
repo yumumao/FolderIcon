@@ -34,7 +34,7 @@ jobs:
           ./scripts/build.ps1 -Zig "$env:RUNNER_TEMP/zig-windows-x86_64-0.13.0/zig.exe" -BuildRoot "$env:RUNNER_TEMP/foldericon-build" -OutputDirectory "$env:RUNNER_TEMP/foldericon-output"
       - name: Package public files only
         run: |
-          ./scripts/package-release.ps1 -Version 'v2.0.0-rc.2' -Exe "$env:RUNNER_TEMP/foldericon-output/FolderIconCN.exe" -OutputDirectory "$env:RUNNER_TEMP/foldericon-package"
+          ./scripts/package-release.ps1 -Version 'v2.0.0-rc.3' -Exe "$env:RUNNER_TEMP/foldericon-output/FolderIconCN.exe" -OutputDirectory "$env:RUNNER_TEMP/foldericon-package"
       - name: Upload reviewed build artifacts
         uses: actions/upload-artifact@v4
         with:
